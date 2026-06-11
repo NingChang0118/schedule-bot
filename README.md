@@ -369,6 +369,7 @@ Schedule Bot 的目標就是解決這些問題。
 ### 系統規模
 
 * 約 2200+ 行 Python 程式碼
+* 6/10 ~ 6/11 開發完成初版
 * Discord Slash Command 架構
 * 自動背景任務系統
 * Pillow 圖片渲染系統
