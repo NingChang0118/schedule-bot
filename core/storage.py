@@ -1,0 +1,110 @@
+import json
+from pathlib import Path
+from dataclasses import asdict
+
+from core.models import Schedule, TimeSlot
+
+
+DATA_DIR = Path("data")
+DATA_FILE = DATA_DIR / "schedules.json"
+
+
+def ensure_data_file():
+    DATA_DIR.mkdir(exist_ok=True)
+
+    if not DATA_FILE.exists():
+        DATA_FILE.write_text("{}", encoding="utf-8")
+
+
+def load_all() -> dict:
+    ensure_data_file()
+
+    with DATA_FILE.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_all(data: dict):
+    ensure_data_file()
+
+    with DATA_FILE.open("w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def schedule_to_dict(schedule: Schedule) -> dict:
+    return asdict(schedule)
+
+
+def normalize_row(row: dict) -> dict:
+    row = row.copy()
+
+    row.setdefault("slot_1", "")
+    row.setdefault("slot_2", "")
+    row.setdefault("slot_3", "")
+    row.setdefault("slot_4", "")
+    row.setdefault("slot_5", "")
+
+    backup = row.get("backup", [])
+
+    if backup == "" or backup is None:
+        backup = []
+
+    if not isinstance(backup, list):
+        backup = []
+
+    row["backup"] = backup
+
+    return row
+
+
+def dict_to_schedule(data: dict) -> Schedule:
+    rows = [
+        TimeSlot(**normalize_row(row))
+        for row in data.get("rows", [])
+    ]
+
+    return Schedule(
+        period=data["period"],
+        car=data["car"],
+        date=data["date"],
+        channel_id=data.get("channel_id"),
+        message_id=data.get("message_id"),
+        rows=rows
+    )
+
+
+def make_schedule_id(period: str, car: str, date: str) -> str:
+    return f"{period}-{car}-{date}"
+
+
+def save_schedule(schedule: Schedule):
+    data = load_all()
+    schedule_id = make_schedule_id(
+        schedule.period,
+        schedule.car,
+        schedule.date
+    )
+
+    data[schedule_id] = schedule_to_dict(schedule)
+    save_all(data)
+
+
+def get_schedule(period: str, car: str, date: str) -> Schedule | None:
+    data = load_all()
+    schedule_id = make_schedule_id(period, car, date)
+
+    if schedule_id not in data:
+        return None
+
+    return dict_to_schedule(data[schedule_id])
+
+
+def delete_schedule(period: str, car: str, date: str) -> bool:
+    data = load_all()
+    schedule_id = make_schedule_id(period, car, date)
+
+    if schedule_id not in data:
+        return False
+
+    del data[schedule_id]
+    save_all(data)
+    return True

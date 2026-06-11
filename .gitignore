@@ -1,0 +1,18 @@
+# Discord Token
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# 排班資料
+data/*.json
+
+# 班表圖片
+data/images/
+
+# VSCode
+.vscode/
+
+# 本地圖片
+*.png
