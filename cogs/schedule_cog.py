@@ -1,26 +1,423 @@
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from core.models import create_empty_schedule
-from core.storage import save_schedule, get_schedule, delete_schedule, load_all, dict_to_schedule
+from core.storage import save_schedule, get_schedule, delete_schedule, load_all, dict_to_schedule, save_all
 from core.renderer import render_schedule
 from config import (
     SCHEDULE_ADMIN_ROLE_ID,
     CURRENT_PERIOD,
     PUSHER_ROLE_ID,
-    RUNNER_ROLE_ID
+    RUNNER_ROLE_ID,
+    RECRUIT_ROLE_ID
 )
 from core.pusher_storage import (
     save_pusher,
     get_pusher
 )
 from core.slot_utils import make_slot, get_slot_display, is_same_user
-
+from config import EMERGENCY_RECRUIT_ROLE_ID, BOARDING_REMINDER_CHANNEL_IDS
 
 class ScheduleCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.emergency_recruited = set()
+        self.emergency_recruit_loop.start()
+        self.boarding_reminded = set()
+        self.boarding_reminder_loop.start()
+
+    def get_boarding_reminder_user_ids(self, row) -> list[int]:
+        """
+        取得上車提醒通知對象
+
+        包含：
+        - 正式班所有人
+        - 候補第 1 位
+        """
+
+        user_ids = []
+
+        slots = [
+            row.slot_1,
+            row.slot_2,
+            row.slot_3,
+            row.slot_4,
+            row.slot_5
+        ]
+
+        for slot in slots:
+            if not isinstance(slot, dict):
+                continue
+
+            user_id = slot.get("user_id")
+
+            if user_id is None:
+                continue
+
+            if user_id not in user_ids:
+                user_ids.append(user_id)
+
+        if row.backup:
+            first_backup = row.backup[0]
+
+            if isinstance(first_backup, dict):
+                user_id = first_backup.get("user_id")
+
+                if user_id is not None and user_id not in user_ids:
+                    user_ids.append(user_id)
+
+        return user_ids
+
+    def get_boarding_reminder_key(self, schedule, row) -> str:
+        """
+        上車提醒唯一 Key
+        """
+
+        return (
+            f"{schedule.car}_"
+            f"{schedule.date}_"
+            f"{row.time}"
+        )
+
+    def has_boarding_reminder_been_sent(
+        self,
+        schedule,
+        row
+    ) -> bool:
+        """
+        是否已發送上車提醒
+        """
+
+        key = self.get_boarding_reminder_key(
+            schedule,
+            row
+        )
+
+        return key in self.boarding_reminded
+
+    def mark_boarding_reminder_sent(
+        self,
+        schedule,
+        row
+    ):
+        """
+        標記已發送上車提醒
+        """
+
+        key = self.get_boarding_reminder_key(
+            schedule,
+            row
+        )
+
+        self.boarding_reminded.add(key)
+
+    def get_boarding_reminder_channel_id(
+        self,
+        schedule
+    ) -> int | None:
+        """
+        根據車輛取得對應衝榜頻道
+        """
+
+        return BOARDING_REMINDER_CHANNEL_IDS.get(
+            schedule.car
+        )
+
+    def build_boarding_reminder_message(
+        self,
+        schedule,
+        row
+    ) -> str:
+        """
+        建立發車提醒訊息
+        """
+
+        user_ids = self.get_boarding_reminder_user_ids(
+            row
+        )
+
+        mentions = " ".join(
+            f"<@{user_id}>"
+            for user_id in user_ids
+        )
+
+        return (
+            f"{mentions}\n\n"
+            f"🚗 發車提醒\n\n"
+            f"車輛：{schedule.car}\n"
+            f"日期：{schedule.date}\n"
+            f"時段：{row.time}\n\n"
+            f"請準備上車。"
+        )
+
+    def is_5_minutes_before_slot(self, schedule, row) -> bool:
+        """
+        判斷目前時間是否剛好是該時段發車前 5 分鐘
+        支援跨年，例如 12/31 23:55 提醒 1/1 00:00
+        """
+
+        from datetime import datetime, timedelta
+
+        try:
+            now = datetime.now()
+
+            month, day = map(int, schedule.date.split("/"))
+
+            start_time = row.time.split("-")[0]
+            hour = int(start_time[:2])
+            minute = int(start_time[2:])
+
+            slot_start = datetime(
+                year=now.year,
+                month=month,
+                day=day,
+                hour=hour,
+                minute=minute
+            )
+
+            if slot_start < now - timedelta(days=180):
+                slot_start = slot_start.replace(
+                    year=now.year + 1
+                )
+
+            target_time = slot_start - timedelta(minutes=5)
+
+            return (
+                now.year == target_time.year
+                and now.month == target_time.month
+                and now.day == target_time.day
+                and now.hour == target_time.hour
+                and now.minute == target_time.minute
+            )
+
+        except Exception as e:
+            print("[上車提醒] 時間判斷失敗：", e)
+            return False
+
+    def is_15_minutes_before_slot(self, schedule, row) -> bool:
+        """
+        判斷目前時間是否剛好是該時段發車前 15 分鐘
+        """
+
+        from datetime import datetime, timedelta
+
+        try:
+            now = datetime.now()
+
+            month, day = map(int, schedule.date.split("/"))
+
+            start_time = row.time.split("-")[0]
+            hour = int(start_time[:2])
+            minute = int(start_time[2:])
+
+            slot_start = datetime(
+                year=now.year,
+                month=month,
+                day=day,
+                hour=hour,
+                minute=minute
+            )
+
+            if slot_start < now - timedelta(days=180):
+                slot_start = slot_start.replace(
+                    year=now.year + 1
+                )
+
+            target_time = slot_start - timedelta(minutes=15)
+
+            return (
+                now.year == target_time.year
+                and now.month == target_time.month
+                and now.day == target_time.day
+                and now.hour == target_time.hour
+                and now.minute == target_time.minute
+            )
+
+        except Exception as e:
+            print("[緊急招募] 時間判斷失敗：", e)
+            return False
+
+    def needs_emergency_recruit(self, row) -> bool:
+        """
+        判斷該時段是否需要緊急招募
+
+        條件：
+        - 有跑者
+        - 總人數未滿 5 人
+        """
+
+        slots = [
+            row.slot_1,
+            row.slot_2,
+            row.slot_3,
+            row.slot_4,
+            row.slot_5
+        ]
+
+        has_runner = False
+        filled_count = 0
+
+        for slot in slots:
+            if not slot:
+                continue
+
+            filled_count += 1
+
+            if isinstance(slot, dict) and slot.get("type") == "runner":
+                has_runner = True
+
+        return has_runner and filled_count < 5
+
+    def get_emergency_key(self, schedule, row) -> str:
+        """
+        產生緊急招募唯一 Key
+        """
+
+        return (
+            f"{schedule.car}_"
+            f"{schedule.date}_"
+            f"{row.time}"
+        )
+
+    def has_emergency_recruit_been_sent(
+        self,
+        schedule,
+        row
+    ) -> bool:
+        """
+        是否已經發送過緊急招募
+        """
+
+        key = self.get_emergency_key(schedule, row)
+
+        return key in self.emergency_recruited
+
+    def mark_emergency_recruit_sent(
+        self,
+        schedule,
+        row
+    ):
+        """
+        標記已發送
+        """
+
+        key = self.get_emergency_key(schedule, row)
+
+        self.emergency_recruited.add(key)
+
+    def get_missing_count(self, row) -> int:
+        """
+        計算該時段缺幾人
+        滿班為 5 人
+        """
+
+        slots = [
+            row.slot_1,
+            row.slot_2,
+            row.slot_3,
+            row.slot_4,
+            row.slot_5
+        ]
+
+        filled_count = 0
+
+        for slot in slots:
+            if slot:
+                filled_count += 1
+
+        return 5 - filled_count
+
+    def build_emergency_recruit_message(
+        self,
+        schedule,
+        row
+    ) -> str:
+
+        missing_count = self.get_missing_count(row)
+
+        display_time = row.time
+
+        if len(display_time) == 9:
+            display_time = (
+                f"{display_time[0:2]}-"
+                f"{display_time[5:7]}"
+            )
+
+        return (
+            f"<@&{EMERGENCY_RECRUIT_ROLE_ID}>\n"
+            f"{schedule.car} {display_time} @{missing_count}"
+        )
+
+    def get_row_by_time(self, schedule, time: str):
+        """
+        從 schedule.rows 裡找指定時段的 row
+        """
+        for row in schedule.rows:
+            if row.time == time:
+                return row
+        return None
+
+    def analyze_recruit_slots(self, row):
+        formal_slots = [
+            row.slot_1,
+            row.slot_2,
+            row.slot_3,
+            row.slot_4,
+            row.slot_5,
+        ]
+
+        occupied_slots = [
+            slot
+            for slot in formal_slots
+            if slot
+        ]
+
+        total_count = len(occupied_slots)
+        missing_count = max(0, 5 - total_count)
+
+        return {
+            "total_count": total_count,
+            "missing_count": missing_count,
+        }
+
+    def build_recruit_message(
+        self,
+        role_id: int,
+        car: str,
+        date: str,
+        recruit_rows: list
+    ):
+        """
+        建立整天缺額招募訊息
+
+        recruit_rows:
+        [
+            ("2000-2100", 1),
+            ("2100-2200", 2),
+        ]
+        """
+
+        role_mention = f"<@&{role_id}>"
+
+        text = (
+            f"{role_mention}\n\n"
+            f"🚨 **缺額招募** 🚨\n\n"
+            f"車輛：{car}\n"
+            f"日期：{date}\n\n"
+        )
+
+        for time_text, missing_count in recruit_rows:
+            text += (
+                f"• {time_text}"
+                f"（缺 {missing_count} 人）\n"
+            )
+
+        text += (
+            "\n請使用 `/報班` 補班。"
+        )
+
+        return text
 
     def normalize_car(self, car: str) -> str:
         car_map = {
@@ -37,6 +434,20 @@ class ScheduleCog(commands.Cog):
         }
 
         return car_map.get(car, car)
+
+    def normalize_date(self, date: str) -> str:
+        date = date.strip()
+
+        if "/" in date:
+            month, day = date.split("/")
+            return f"{int(month)}/{int(day)}"
+
+        if len(date) == 4 and date.isdigit():
+            month = int(date[:2])
+            day = int(date[2:])
+            return f"{month}/{day}"
+
+        return date
 
     def get_slot_rate(self, slot) -> float:
         if not slot:
@@ -145,7 +556,7 @@ class ScheduleCog(commands.Cog):
             row.slot_4,
             row.slot_5
         ]:
-            if slot is None:
+            if not isinstance(slot, dict):
                 continue
 
             keys.add(
@@ -179,6 +590,20 @@ class ScheduleCog(commands.Cog):
             1
             for slot in slots
             if self.is_runner_slot(slot)
+        )
+
+    def has_runner_in_row(self, row) -> bool:
+        slots = [
+            row.slot_1,
+            row.slot_2,
+            row.slot_3,
+            row.slot_4,
+            row.slot_5
+        ]
+
+        return any(
+            self.is_runner_slot(slot)
+            for slot in slots
         )
 
     def count_pushers(self, row) -> int:
@@ -380,6 +805,166 @@ class ScheduleCog(commands.Cog):
             ]
         )
 
+    @tasks.loop(minutes=1)
+    async def emergency_recruit_loop(self):
+
+        print("[緊急招募] 開始掃描")
+
+        all_data = load_all()
+
+        schedules = [
+            dict_to_schedule(schedule_data)
+            for schedule_data in all_data.values()
+        ]
+
+        print(f"[緊急招募] 讀到 {len(schedules)} 張班表")
+
+        for schedule in schedules:
+            print(
+                f"[緊急招募] 檢查班表："
+                f"{schedule.car} "
+                f"{schedule.date} "
+                f"共 {len(schedule.rows)} 個時段"
+            )
+
+            for row in schedule.rows:
+                if not self.is_15_minutes_before_slot(
+                    schedule,
+                    row
+                ):
+                    continue
+
+                if not self.needs_emergency_recruit(row):
+                    continue
+
+                print(
+                    f"[緊急招募] 找到缺額："
+                    f"{schedule.car} "
+                    f"{schedule.date} "
+                    f"{row.time} "
+                    f"缺 {self.get_missing_count(row)} 人"
+                )
+
+                if self.has_emergency_recruit_been_sent(
+                    schedule,
+                    row
+                ):
+                    continue
+
+                channel = self.bot.get_channel(
+                    schedule.channel_id
+                )
+
+                if channel is None:
+                    channel = await self.bot.fetch_channel(
+                        schedule.channel_id
+                )
+
+                message = self.build_emergency_recruit_message(
+                    schedule,
+                    row
+                )
+
+                await channel.send(message)
+
+                self.mark_emergency_recruit_sent(
+                    schedule,
+                    row
+                )
+
+    @emergency_recruit_loop.before_loop
+    async def before_emergency_recruit_loop(self):
+        await self.bot.wait_until_ready()
+
+    @tasks.loop(minutes=1)
+    async def boarding_reminder_loop(self):
+
+        print("[上車提醒] 開始掃描")
+
+        all_data = load_all()
+
+        schedules = [
+            dict_to_schedule(schedule_data)
+            for schedule_data in all_data.values()
+        ]
+
+        print(f"[上車提醒] 讀到 {len(schedules)} 張班表")
+
+        for schedule in schedules:
+            print(
+                f"[上車提醒] 檢查班表："
+                f"{schedule.car} "
+                f"{schedule.date} "
+                f"共 {len(schedule.rows)} 個時段"
+            )
+
+            for row in schedule.rows:
+                if not self.is_5_minutes_before_slot(
+                    schedule,
+                    row
+                ):
+                    continue
+
+                if self.has_boarding_reminder_been_sent(
+                    schedule,
+                    row
+                ):
+                    continue
+
+                user_ids = self.get_boarding_reminder_user_ids(
+                    row
+                )
+
+                if not user_ids:
+                    print(
+                        f"[上車提醒] 無通知對象："
+                        f"{schedule.car} "
+                        f"{schedule.date} "
+                        f"{row.time}"
+                    )
+                    continue
+
+                channel_id = self.get_boarding_reminder_channel_id(
+                    schedule
+                )
+
+                if channel_id is None:
+                    print(
+                        f"[上車提醒] 找不到對應頻道："
+                        f"{schedule.car}"
+                    )
+                    continue
+
+                channel = self.bot.get_channel(channel_id)
+
+                if channel is None:
+                    channel = await self.bot.fetch_channel(
+                        channel_id
+                    )
+
+                message = self.build_boarding_reminder_message(
+                    schedule,
+                    row
+                )
+
+                await channel.send(message)
+
+                self.mark_boarding_reminder_sent(
+                    schedule,
+                    row
+                )
+
+                print(
+                    f"[上車提醒] 已發送："
+                    f"{schedule.car} "
+                    f"{schedule.date} "
+                    f"{row.time}"
+                )
+
+    @boarding_reminder_loop.before_loop
+    async def before_boarding_reminder_loop(self):
+        await self.bot.wait_until_ready()
+
     @app_commands.command(
         name="報班",
         description="填入指定時間的推車手"
@@ -402,6 +987,7 @@ class ScheduleCog(commands.Cog):
 
         period = CURRENT_PERIOD
         car = self.normalize_car(car)
+        date = self.normalize_date(date)
 
         pusher_data = get_pusher(interaction.user.id)
 
@@ -530,6 +1116,7 @@ class ScheduleCog(commands.Cog):
 
         period = CURRENT_PERIOD
         car = self.normalize_car(car)
+        date = self.normalize_date(date)
 
         runner_name = interaction.user.display_name.split("/")[0].strip() + "R"
 
@@ -620,6 +1207,7 @@ class ScheduleCog(commands.Cog):
 
         period = CURRENT_PERIOD
         car = self.normalize_car(car)
+        date = self.normalize_date(date)
 
         schedule = get_schedule(period, car, date)
 
@@ -819,6 +1407,7 @@ class ScheduleCog(commands.Cog):
 
         period = CURRENT_PERIOD
         car = self.normalize_car(car)
+        date = self.normalize_date(date)
 
         schedule = get_schedule(period, car, date)
 
@@ -1078,6 +1667,7 @@ class ScheduleCog(commands.Cog):
     ):
         period = CURRENT_PERIOD
         car = self.normalize_car(car)
+        date = self.normalize_date(date)
 
         schedule = get_schedule(period, car, date)
 
@@ -1101,6 +1691,83 @@ class ScheduleCog(commands.Cog):
         )
 
     @app_commands.command(
+        name="缺額招募",
+        description="發送指定時段的缺額招募"
+    )
+    async def recruit_missing(
+        self,
+        interaction: discord.Interaction,
+        car: str,
+        date: str
+    ):
+        await interaction.response.defer(ephemeral=True)
+
+        if not self.is_schedule_admin(interaction):
+            await interaction.followup.send(
+                "❌ 你沒有使用此指令的權限。",
+                ephemeral=True
+            )
+            return
+
+        period = CURRENT_PERIOD
+        car = self.normalize_car(car)
+        date = self.normalize_date(date)
+
+        schedule = get_schedule(
+            period,
+            car,
+            date
+        )
+
+        if schedule is None:
+            await interaction.followup.send(
+                f"❌ 找不到 `{car} {date}` 的班表。",
+                ephemeral=True
+            )
+            return
+
+        recruit_rows = []
+
+        for row in schedule.rows:
+            if not self.has_runner_in_row(row):
+                continue
+
+            stats = self.analyze_recruit_slots(row)
+
+            if stats["missing_count"] <= 0:
+                continue
+
+            recruit_rows.append(
+                (
+                    row.time,
+                    stats["missing_count"]
+                )
+            )
+
+        if not recruit_rows:
+            await interaction.followup.send(
+                "✅ 目前沒有需要招募的時段。",
+                ephemeral=True
+            )
+            return
+        
+        recruit_message = self.build_recruit_message(
+            role_id=RECRUIT_ROLE_ID,
+            car=car,
+            date=date,
+            recruit_rows=recruit_rows
+        )
+
+        await interaction.channel.send(
+            recruit_message
+        )
+
+        await interaction.followup.send(
+            "✅ 已發送缺額招募。",
+            ephemeral=True
+        )
+
+    @app_commands.command(
         name="重建班表",
         description="重新產生班表圖片"
     )
@@ -1121,6 +1788,7 @@ class ScheduleCog(commands.Cog):
 
         period = CURRENT_PERIOD
         car = self.normalize_car(car)
+        date = self.normalize_date(date)
 
         schedule = get_schedule(period, car, date)
 
@@ -1148,6 +1816,7 @@ class ScheduleCog(commands.Cog):
         car: str,
         date: str
     ):
+        
         if not self.is_schedule_admin(interaction):
             await interaction.response.send_message(
                 "❌ 你沒有建立班表的權限。",
@@ -1159,6 +1828,7 @@ class ScheduleCog(commands.Cog):
 
         period = CURRENT_PERIOD
         car = self.normalize_car(car)
+        date = self.normalize_date(date)
 
         existing = get_schedule(period, car, date)
 
@@ -1208,10 +1878,67 @@ class ScheduleCog(commands.Cog):
 
         period = CURRENT_PERIOD
         car = self.normalize_car(car)
+        date = self.normalize_date(date)
 
-        schedule = get_schedule(period, car, date)
+        success = delete_schedule(period, car, date)
 
-        if schedule is None:
+        if not success:
+            await interaction.followup.send(
+                f"❌ 找不到 `{car} {date}` 的班表。",
+                ephemeral=True
+            )
+            return
+
+        await interaction.followup.send(
+            f"🗑️ 已刪除 `{car} {date}` 的排班。",
+            ephemeral=True
+        )
+
+    @app_commands.command(
+        name="強制刪除班表",
+        description="不管期數，強制刪除指定班表"
+    )
+    async def force_delete_schedule(
+        self,
+        interaction: discord.Interaction,
+        car: str,
+        date: str
+    ):
+        await interaction.response.defer(
+            ephemeral=True
+        )
+
+        if not self.is_schedule_admin(interaction):
+            await interaction.followup.send(
+                "❌ 你沒有強制刪除班表的權限。",
+                ephemeral=True
+            )
+            return
+
+        car = self.normalize_car(car)
+        date = self.normalize_date(date)
+
+        all_data = load_all()
+
+        target_key = None
+        target_schedule = None
+
+        for key, schedule_data in all_data.items():
+            schedule = dict_to_schedule(schedule_data)
+
+            schedule_date = self.normalize_date(schedule.date)
+
+            if schedule.car != car:
+                continue
+
+            if schedule_date != date:
+                continue
+
+            target_key = key
+            target_schedule = schedule
+            break
+
+        if target_key is None:
             await interaction.followup.send(
                 f"❌ 找不到 `{car} {date}` 的班表。",
                 ephemeral=True
@@ -1219,29 +1946,86 @@ class ScheduleCog(commands.Cog):
             return
 
         try:
-            channel = self.bot.get_channel(schedule.channel_id)
+            channel = self.bot.get_channel(
+                target_schedule.channel_id
+            )
 
             if channel is None:
-                channel = await self.bot.fetch_channel(schedule.channel_id)
+                channel = await self.bot.fetch_channel(
+                    target_schedule.channel_id
+                )
 
-            message = await channel.fetch_message(schedule.message_id)
+            message = await channel.fetch_message(
+                target_schedule.message_id
+            )
 
             await message.delete()
 
         except Exception:
             pass
 
-        success = delete_schedule(period, car, date)
+        del all_data[target_key]
+        save_all(all_data)
 
-        if not success:
+        await interaction.followup.send(
+            f"🗑️ 已強制刪除 `{car} {date}` 的班表。",
+            ephemeral=True
+        )
+
+    @app_commands.command(
+        name="班表列表",
+        description="查看目前所有班表"
+    )
+    async def list_schedules(
+        self,
+        interaction: discord.Interaction
+    ):
+        await interaction.response.defer(
+            ephemeral=True
+        )
+
+        if not self.is_schedule_admin(interaction):
             await interaction.followup.send(
-                f"⚠️ Discord 訊息可能已刪除，但 JSON 找不到 `{car} {date}` 的資料。",
+                "❌ 你沒有查看班表列表的權限。",
                 ephemeral=True
             )
             return
 
+        all_data = load_all()
+
+        schedules = [
+            dict_to_schedule(schedule_data)
+            for schedule_data in all_data.values()
+        ]
+
+        if not schedules:
+            await interaction.followup.send(
+                "目前沒有任何班表。",
+                ephemeral=True
+            )
+            return
+
+        schedules.sort(
+            key=lambda schedule: (
+                schedule.date,
+                schedule.car
+            )
+        )
+
+        text = "📋 **班表列表**\n\n"
+
+        for schedule in schedules:
+            text += (
+                f"• {schedule.car} "
+                f"{schedule.date}\n"
+            )
+
+        text += (
+            f"\n共 {len(schedules)} 張班表"
+        )
+
         await interaction.followup.send(
-            f"🗑️ 已刪除 `{car} {date}` 的排班。",
+            text,
             ephemeral=True
         )
 
@@ -1290,6 +2074,7 @@ class ScheduleCog(commands.Cog):
 
         period = CURRENT_PERIOD
         car = self.normalize_car(car)
+        date = self.normalize_date(date)
         target_time = self.expand_time_range(time)[0]
 
         schedule = get_schedule(period, car, date)
@@ -1383,8 +2168,6 @@ class ScheduleCog(commands.Cog):
             "排班機器人正常運作 ✅",
             ephemeral=True
         )
-
-
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ScheduleCog(bot))

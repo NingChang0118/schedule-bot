@@ -100,11 +100,44 @@ def get_schedule(period: str, car: str, date: str) -> Schedule | None:
 
 def delete_schedule(period: str, car: str, date: str) -> bool:
     data = load_all()
+
     schedule_id = make_schedule_id(period, car, date)
 
-    if schedule_id not in data:
-        return False
+    if schedule_id in data:
+        del data[schedule_id]
+        save_all(data)
+        return True
 
-    del data[schedule_id]
-    save_all(data)
-    return True
+    target_date = date
+
+    try:
+        if "/" in target_date:
+            month, day = target_date.split("/")
+            target_date = f"{int(month)}/{int(day)}"
+    except Exception:
+        pass
+
+    for key, schedule_data in list(data.items()):
+        if schedule_data.get("period") != period:
+            continue
+
+        if schedule_data.get("car") != car:
+            continue
+
+        schedule_date = schedule_data.get("date")
+
+        try:
+            if "/" in schedule_date:
+                month, day = schedule_date.split("/")
+                schedule_date = f"{int(month)}/{int(day)}"
+        except Exception:
+            pass
+
+        if schedule_date != target_date:
+            continue
+
+        del data[key]
+        save_all(data)
+        return True
+
+    return False
