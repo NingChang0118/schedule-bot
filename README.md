@@ -1,4 +1,6 @@
 # Schedule Bot v1.3.0
+Status:
+✅ Production Ready
 
 > 為 Discord 車隊打造的智慧排班管理系統
 
