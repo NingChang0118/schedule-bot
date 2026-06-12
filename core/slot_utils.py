@@ -1,4 +1,4 @@
-def make_slot(user_id, name, role_type, rate=None):
+def make_slot(user_id, name, role_type, rate=None, power=None):
     if role_type == "pusher":
         display = f"{name}({rate})"
     else:
@@ -8,6 +8,7 @@ def make_slot(user_id, name, role_type, rate=None):
         "user_id": str(user_id),
         "name": name,
         "rate": rate,
+        "power": power,
         "type": role_type,
         "display": display
     }

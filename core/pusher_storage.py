@@ -27,12 +27,18 @@ def save_pushers(data: dict):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def save_pusher(user_id: int, name: str, rate: str):
+def save_pusher(
+    user_id: int,
+    name: str,
+    rate: str,
+    power: str
+):
     data = load_pushers()
 
     data[str(user_id)] = {
         "name": name,
-        "rate": rate
+        "rate": rate,
+        "power": power
     }
 
     save_pushers(data)
