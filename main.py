@@ -20,6 +20,8 @@ async def on_ready():
 async def main():
     async with bot:
         await bot.load_extension("cogs.schedule_cog")
+        await bot.load_extension("cogs.admin_cog")
+        await bot.load_extension("cogs.test_cog")
         await bot.start(TOKEN)
 
 

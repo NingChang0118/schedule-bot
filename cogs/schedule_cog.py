@@ -18,6 +18,13 @@ from core.pusher_storage import (
 )
 from core.slot_utils import make_slot, get_slot_display, is_same_user
 from config import EMERGENCY_RECRUIT_ROLE_ID, BOARDING_REMINDER_CHANNEL_IDS
+from core.schedule_utils import (
+    normalize_car,
+    normalize_date,
+    normalize_time,
+    expand_time_range
+)
+
 
 class ScheduleCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -419,36 +426,6 @@ class ScheduleCog(commands.Cog):
 
         return text
 
-    def normalize_car(self, car: str) -> str:
-        car_map = {
-            "1": "一車",
-            "2": "二車",
-            "3": "三車",
-            "4": "四車",
-            "5": "五車",
-            "一": "一車",
-            "二": "二車",
-            "三": "三車",
-            "四": "四車",
-            "五": "五車",
-        }
-
-        return car_map.get(car, car)
-
-    def normalize_date(self, date: str) -> str:
-        date = date.strip()
-
-        if "/" in date:
-            month, day = date.split("/")
-            return f"{int(month)}/{int(day)}"
-
-        if len(date) == 4 and date.isdigit():
-            month = int(date[:2])
-            day = int(date[2:])
-            return f"{month}/{day}"
-
-        return date
-
     def get_slot_rate(self, slot) -> float:
         if not slot:
             return 0.0
@@ -751,44 +728,6 @@ class ScheduleCog(commands.Cog):
             for role in interaction.user.roles
         )
 
-    def normalize_time(self, time_str: str) -> str:
-        if "-" not in time_str:
-            return time_str
-
-        try:
-            start, end = time_str.split("-")
-
-            start = int(start)
-            end = int(end)
-
-            return f"{start:02d}00-{end:02d}00"
-
-        except ValueError:
-            return time_str
-
-    def expand_time_range(self, time_str: str) -> list[str]:
-        if "-" not in time_str:
-            return [self.normalize_time(time_str)]
-
-        try:
-            start, end = time_str.split("-")
-
-            start = int(start)
-            end = int(end)
-
-            if end <= start:
-                return [self.normalize_time(time_str)]
-
-            times = []
-
-            for hour in range(start, end):
-                times.append(f"{hour:02d}00-{hour + 1:02d}00")
-
-            return times
-
-        except ValueError:
-            return [self.normalize_time(time_str)]
-
     async def update_schedule_message(self, schedule):
         image_path = render_schedule(schedule)
 
@@ -986,8 +925,8 @@ class ScheduleCog(commands.Cog):
             return
 
         period = CURRENT_PERIOD
-        car = self.normalize_car(car)
-        date = self.normalize_date(date)
+        car = normalize_car(car)
+        date = normalize_date(date)
 
         pusher_data = get_pusher(interaction.user.id)
 
@@ -1008,7 +947,7 @@ class ScheduleCog(commands.Cog):
 
         display_name = get_slot_display(slot_data)
 
-        times = self.expand_time_range(time)
+        times = expand_time_range(time)
 
         schedule = get_schedule(period, car, date)
 
@@ -1115,8 +1054,8 @@ class ScheduleCog(commands.Cog):
             return
 
         period = CURRENT_PERIOD
-        car = self.normalize_car(car)
-        date = self.normalize_date(date)
+        car = normalize_car(car)
+        date = normalize_date(date)
 
         runner_name = interaction.user.display_name.split("/")[0].strip() + "R"
 
@@ -1128,7 +1067,7 @@ class ScheduleCog(commands.Cog):
 
         display_name = get_slot_display(slot_data)
 
-        times = self.expand_time_range(time)
+        times = expand_time_range(time)
 
         schedule = get_schedule(period, car, date)
 
@@ -1206,8 +1145,8 @@ class ScheduleCog(commands.Cog):
         await interaction.response.defer(ephemeral=True)
 
         period = CURRENT_PERIOD
-        car = self.normalize_car(car)
-        date = self.normalize_date(date)
+        car = normalize_car(car)
+        date = normalize_date(date)
 
         schedule = get_schedule(period, car, date)
 
@@ -1231,7 +1170,7 @@ class ScheduleCog(commands.Cog):
                 )
                 return
 
-            times = self.expand_time_range(time)
+            times = expand_time_range(time)
             target_rows = []
 
             for target_time in times:
@@ -1406,8 +1345,8 @@ class ScheduleCog(commands.Cog):
         await interaction.response.defer(ephemeral=True)
 
         period = CURRENT_PERIOD
-        car = self.normalize_car(car)
-        date = self.normalize_date(date)
+        car = normalize_car(car)
+        date = normalize_date(date)
 
         schedule = get_schedule(period, car, date)
 
@@ -1418,7 +1357,7 @@ class ScheduleCog(commands.Cog):
             )
             return
         
-        target_time = self.expand_time_range(time)[0]
+        target_time = expand_time_range(time)[0]
 
         target_row = None
 
@@ -1666,8 +1605,8 @@ class ScheduleCog(commands.Cog):
         date: str
     ):
         period = CURRENT_PERIOD
-        car = self.normalize_car(car)
-        date = self.normalize_date(date)
+        car = normalize_car(car)
+        date = normalize_date(date)
 
         schedule = get_schedule(period, car, date)
 
@@ -1710,8 +1649,8 @@ class ScheduleCog(commands.Cog):
             return
 
         period = CURRENT_PERIOD
-        car = self.normalize_car(car)
-        date = self.normalize_date(date)
+        car = normalize_car(car)
+        date = normalize_date(date)
 
         schedule = get_schedule(
             period,
@@ -1768,268 +1707,6 @@ class ScheduleCog(commands.Cog):
         )
 
     @app_commands.command(
-        name="重建班表",
-        description="重新產生班表圖片"
-    )
-    async def rebuild_schedule(
-        self,
-        interaction: discord.Interaction,
-        car: str,
-        date: str
-    ):
-        if not self.is_schedule_admin(interaction):
-            await interaction.response.send_message(
-                "❌ 你沒有重建班表的權限。",
-                ephemeral=True
-            )
-            return
-
-        await interaction.response.defer(ephemeral=True)
-
-        period = CURRENT_PERIOD
-        car = self.normalize_car(car)
-        date = self.normalize_date(date)
-
-        schedule = get_schedule(period, car, date)
-
-        if schedule is None:
-            await interaction.followup.send(
-                f"❌ 找不到 `{car} {date}` 的班表。",
-                ephemeral=True
-            )
-            return
-
-        await self.update_schedule_message(schedule)
-
-        await interaction.followup.send(
-            f"✅ 已重建 `{car} {date}` 班表。",
-            ephemeral=True
-        )
-
-    @app_commands.command(
-        name="建立班表",
-        description="建立一張新的 24 小時排班表"
-    )
-    async def create_schedule(
-        self,
-        interaction: discord.Interaction,
-        car: str,
-        date: str
-    ):
-        
-        if not self.is_schedule_admin(interaction):
-            await interaction.response.send_message(
-                "❌ 你沒有建立班表的權限。",
-                ephemeral=True
-            )
-            return
-
-        await interaction.response.defer(ephemeral=True)
-
-        period = CURRENT_PERIOD
-        car = self.normalize_car(car)
-        date = self.normalize_date(date)
-
-        existing = get_schedule(period, car, date)
-
-        if existing is not None:
-            await interaction.followup.send(
-                f"⚠️ `{car} {date}` 的班表已經存在。",
-                ephemeral=True
-            )
-            return
-
-        schedule = create_empty_schedule(period, car, date)
-
-        image_path = render_schedule(schedule)
-
-        message = await interaction.channel.send(
-            file=discord.File(str(image_path), filename="schedule.png")
-        )
-
-        schedule.channel_id = interaction.channel.id
-        schedule.message_id = message.id
-
-        save_schedule(schedule)
-
-        await interaction.followup.send(
-            f"✅ 已建立 `{car} {date}` 的 24 小時班表。",
-            ephemeral=True
-        )
-
-    @app_commands.command(
-        name="刪除班表",
-        description="刪除指定的班表"
-    )
-    async def delete_schedule_command(
-        self,
-        interaction: discord.Interaction,
-        car: str,
-        date: str
-    ):
-        if not self.is_schedule_admin(interaction):
-            await interaction.response.send_message(
-                "❌ 你沒有刪除班表的權限。",
-                ephemeral=True
-            )
-            return
-
-        await interaction.response.defer(ephemeral=True)
-
-        period = CURRENT_PERIOD
-        car = self.normalize_car(car)
-        date = self.normalize_date(date)
-
-        success = delete_schedule(period, car, date)
-
-        if not success:
-            await interaction.followup.send(
-                f"❌ 找不到 `{car} {date}` 的班表。",
-                ephemeral=True
-            )
-            return
-
-        await interaction.followup.send(
-            f"🗑️ 已刪除 `{car} {date}` 的排班。",
-            ephemeral=True
-        )
-
-    @app_commands.command(
-        name="強制刪除班表",
-        description="不管期數，強制刪除指定班表"
-    )
-    async def force_delete_schedule(
-        self,
-        interaction: discord.Interaction,
-        car: str,
-        date: str
-    ):
-        await interaction.response.defer(
-            ephemeral=True
-        )
-
-        if not self.is_schedule_admin(interaction):
-            await interaction.followup.send(
-                "❌ 你沒有強制刪除班表的權限。",
-                ephemeral=True
-            )
-            return
-
-        car = self.normalize_car(car)
-        date = self.normalize_date(date)
-
-        all_data = load_all()
-
-        target_key = None
-        target_schedule = None
-
-        for key, schedule_data in all_data.items():
-            schedule = dict_to_schedule(schedule_data)
-
-            schedule_date = self.normalize_date(schedule.date)
-
-            if schedule.car != car:
-                continue
-
-            if schedule_date != date:
-                continue
-
-            target_key = key
-            target_schedule = schedule
-            break
-
-        if target_key is None:
-            await interaction.followup.send(
-                f"❌ 找不到 `{car} {date}` 的班表。",
-                ephemeral=True
-            )
-            return
-
-        try:
-            channel = self.bot.get_channel(
-                target_schedule.channel_id
-            )
-
-            if channel is None:
-                channel = await self.bot.fetch_channel(
-                    target_schedule.channel_id
-                )
-
-            message = await channel.fetch_message(
-                target_schedule.message_id
-            )
-
-            await message.delete()
-
-        except Exception:
-            pass
-
-        del all_data[target_key]
-        save_all(all_data)
-
-        await interaction.followup.send(
-            f"🗑️ 已強制刪除 `{car} {date}` 的班表。",
-            ephemeral=True
-        )
-
-    @app_commands.command(
-        name="班表列表",
-        description="查看目前所有班表"
-    )
-    async def list_schedules(
-        self,
-        interaction: discord.Interaction
-    ):
-        await interaction.response.defer(
-            ephemeral=True
-        )
-
-        if not self.is_schedule_admin(interaction):
-            await interaction.followup.send(
-                "❌ 你沒有查看班表列表的權限。",
-                ephemeral=True
-            )
-            return
-
-        all_data = load_all()
-
-        schedules = [
-            dict_to_schedule(schedule_data)
-            for schedule_data in all_data.values()
-        ]
-
-        if not schedules:
-            await interaction.followup.send(
-                "目前沒有任何班表。",
-                ephemeral=True
-            )
-            return
-
-        schedules.sort(
-            key=lambda schedule: (
-                schedule.date,
-                schedule.car
-            )
-        )
-
-        text = "📋 **班表列表**\n\n"
-
-        for schedule in schedules:
-            text += (
-                f"• {schedule.car} "
-                f"{schedule.date}\n"
-            )
-
-        text += (
-            f"\n共 {len(schedules)} 張班表"
-        )
-
-        await interaction.followup.send(
-            text,
-            ephemeral=True
-        )
-
-    @app_commands.command(
         name="登記推車資料",
         description="登記自己的倍率資料"
     )
@@ -2073,9 +1750,9 @@ class ScheduleCog(commands.Cog):
         await interaction.response.defer(ephemeral=True)
 
         period = CURRENT_PERIOD
-        car = self.normalize_car(car)
-        date = self.normalize_date(date)
-        target_time = self.expand_time_range(time)[0]
+        car = normalize_car(car)
+        date = normalize_date(date)
+        target_time = expand_time_range(time)[0]
 
         schedule = get_schedule(period, car, date)
 
@@ -2156,16 +1833,6 @@ class ScheduleCog(commands.Cog):
 
         await interaction.followup.send(
             f"✅ 已建立 `{car} {date} {target_time}` 的共跑測試資料。",
-            ephemeral=True
-        )
-
-    @app_commands.command(
-        name="測試",
-        description="測試排班機器人是否正常運作"
-    )
-    async def test(self, interaction: discord.Interaction):
-        await interaction.response.send_message(
-            "排班機器人正常運作 ✅",
             ephemeral=True
         )
 
