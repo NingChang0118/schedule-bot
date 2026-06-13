@@ -70,6 +70,8 @@ def is_row_full(row):
 
 
 def add_to_backup(row, slot_data):
+    if not isinstance(row.backup, list):
+        row.backup = []
     row.backup.append(slot_data)
 
 
