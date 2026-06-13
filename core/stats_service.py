@@ -28,13 +28,11 @@ def get_user_hours(
                 row.slot_5,
             ]
 
-            slots.extend(row.backup)
-
             for slot in slots:
-                if not is_same_user(slot, user_id):
+                if not isinstance(slot, dict):
                     continue
 
-                if not isinstance(slot, dict):
+                if not is_same_user(slot, user_id):
                     continue
 
                 if slot.get("type") == "pusher":
@@ -48,6 +46,7 @@ def get_user_hours(
         "runner_hours": runner_hours,
         "total_hours": pusher_hours - runner_hours
     }
+
 
 def get_period_total_hours(current_period):
     all_data = load_all()
@@ -90,6 +89,7 @@ def get_period_total_hours(current_period):
         "runner_hours": runner_hours,
         "pusher_hours": pusher_hours
     }
+
 
 def build_current_hours_text(
     current_period,
