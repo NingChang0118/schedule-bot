@@ -1,6 +1,22 @@
+import asyncio
+
 import discord
 from discord.ext import commands
+
 from config import TOKEN
+
+
+EXTENSIONS = [
+    "cogs.reminder_cog",
+    "cogs.admin_cog",
+    "cogs.test_cog",
+    "cogs.profile_cog",
+    "cogs.booking_cog",
+    "cogs.cancel_cog",
+    "cogs.query_cog",
+    "cogs.recruit_cog"
+]
+
 
 intents = discord.Intents.default()
 
@@ -9,6 +25,9 @@ bot = commands.Bot(
     intents=intents
 )
 
+bot.boarding_reminded = set()
+bot.s6_reminded = set()
+bot.emergency_recruited = set()
 
 @bot.event
 async def on_ready():
@@ -19,12 +38,11 @@ async def on_ready():
 
 async def main():
     async with bot:
-        await bot.load_extension("cogs.schedule_cog")
-        await bot.load_extension("cogs.admin_cog")
-        await bot.load_extension("cogs.test_cog")
+        for extension in EXTENSIONS:
+            await bot.load_extension(extension)
+
         await bot.start(TOKEN)
 
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())

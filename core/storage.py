@@ -42,6 +42,8 @@ def normalize_row(row: dict) -> dict:
     row.setdefault("slot_3", "")
     row.setdefault("slot_4", "")
     row.setdefault("slot_5", "")
+    row.setdefault("s6", "")
+    row.setdefault("car_type", "")
 
     backup = row.get("backup", [])
 
