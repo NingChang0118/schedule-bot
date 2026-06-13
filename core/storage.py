@@ -19,15 +19,22 @@ def ensure_data_file():
 def load_all() -> dict:
     ensure_data_file()
 
-    with DATA_FILE.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with DATA_FILE.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        return {}
 
 
 def save_all(data: dict):
     ensure_data_file()
 
-    with DATA_FILE.open("w", encoding="utf-8") as f:
+    temp_file = DATA_FILE.with_suffix(".tmp")
+
+    with temp_file.open("w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+    temp_file.replace(DATA_FILE)
 
 
 def schedule_to_dict(schedule: Schedule) -> dict:
