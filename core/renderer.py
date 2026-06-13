@@ -58,6 +58,17 @@ def get_backup_display(backup):
 
         return get_slot_display(backup[0])
 
+def get_time_display(time_text: str) -> str:
+    try:
+        start, end = time_text.split("-")
+
+        return (
+            f"{start[:2]}-{end[:2]}"
+        )
+
+    except Exception:
+        return time_text
+
 def render_schedule(schedule: Schedule) -> Path:
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -74,10 +85,12 @@ def render_schedule(schedule: Schedule) -> Path:
         "3",
         "4",
         "5",
-        "候補"
+        "候補",
+        "S6",
+        "車種"
     ]
 
-    col_widths = [150, 145, 145, 145, 145, 145, 145]
+    col_widths = [150, 125, 125, 125, 125, 125, 145, 110, 125]
     row_height = 32
 
     width = sum(col_widths)
@@ -103,7 +116,7 @@ def render_schedule(schedule: Schedule) -> Path:
 
         draw.rectangle(
             [x1, y, x2, y + row_height],
-            fill="#9fd0f5",
+            fill="#5B7DB1",
             outline="black"
         )
 
@@ -111,7 +124,8 @@ def render_schedule(schedule: Schedule) -> Path:
             draw,
             (x1, y, x2, y + row_height),
             header,
-            font
+            font,
+            fill="white"
         )
 
     # 內容
@@ -119,20 +133,29 @@ def render_schedule(schedule: Schedule) -> Path:
         y = row_height * (row_index + 1)
 
         values = [
-            row.time,
+            get_time_display(row.time),
             get_slot_display(row.slot_1),
             get_slot_display(row.slot_2),
             get_slot_display(row.slot_3),
             get_slot_display(row.slot_4),
             get_slot_display(row.slot_5),
-            get_backup_display(row.backup)
+            get_backup_display(row.backup),
+            get_slot_display(row.s6),
+            row.car_type
         ]
 
         for col_index, value in enumerate(values):
             x1 = x_positions[col_index]
             x2 = x_positions[col_index + 1]
 
-            fill = "#fff6d5" if col_index == 6 else "white"
+            if col_index == 6:
+                fill = "#FFE5B4"
+            elif col_index == 7:
+                fill = "#D9F2D9"
+            elif col_index == 8:
+                fill = "#FFF8CC"
+            else:
+                fill = "white"
 
             draw.rectangle(
                 [x1, y, x2, y + row_height],

@@ -8,12 +8,18 @@ from core.storage import (
 from core.discord_message_service import update_schedule_message
 
 
+from core.rebalance_service import (
+    rebalance_row
+)
+
+
 def update_profile_slot(
     slot,
     user_id: int,
     role_type: str,
     name: str,
-    rate: str | None = None
+    rate: str | None = None,
+    power: str | None = None
 ) -> bool:
     if not isinstance(slot, dict):
         return False
@@ -26,6 +32,7 @@ def update_profile_slot(
 
     slot["name"] = name
     slot["rate"] = rate
+    slot["power"] = power
 
     if role_type == "pusher":
         slot["display"] = f"{name}({rate})"
@@ -40,20 +47,25 @@ def sync_profile_to_schedule(
     user_id: int,
     role_type: str,
     name: str,
-    rate: str | None = None
+    rate: str | None = None,
+    power: str | None = None
 ) -> int:
     updated_count = 0
 
     for row in schedule.rows:
+        row_updated = False
+
         for slot in get_all_slots(row):
             if update_profile_slot(
                 slot,
                 user_id,
                 role_type,
                 name,
-                rate
+                rate,
+                power
             ):
                 updated_count += 1
+                row_updated = True
 
         for slot in row.backup:
             if update_profile_slot(
@@ -61,9 +73,14 @@ def sync_profile_to_schedule(
                 user_id,
                 role_type,
                 name,
-                rate
+                rate,
+                power
             ):
                 updated_count += 1
+                row_updated = True
+
+        if row_updated:
+            rebalance_row(row)
 
     return updated_count
 
@@ -73,7 +90,8 @@ async def sync_profile_to_all_current_schedules(
     user_id: int,
     role_type: str,
     name: str,
-    rate: str | None = None
+    rate: str | None = None,
+    power: str | None = None
 ) -> tuple[int, int]:
     all_data = load_all()
 
@@ -93,7 +111,8 @@ async def sync_profile_to_all_current_schedules(
             user_id,
             role_type,
             name,
-            rate
+            rate,
+            power
         )
 
         if updated_count == 0:

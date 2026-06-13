@@ -91,11 +91,19 @@ def rebalance_row(row):
         row.slot_5
     ]
 
-    runners = [
+    active_runners = [
         slot
         for slot in slots
         if is_runner_slot(slot)
     ]
+
+    backup_runners = [
+        slot
+        for slot in row.backup
+        if is_runner_slot(slot)
+    ]
+
+    runners = active_runners + backup_runners
 
     pushers = [
         slot
@@ -106,7 +114,7 @@ def rebalance_row(row):
     backup_pushers = [
         slot
         for slot in row.backup
-        if isinstance(slot, dict) and slot.get("type") == "pusher"
+        if is_pusher_slot(slot)
     ]
 
     all_pushers = pushers + backup_pushers
@@ -137,6 +145,19 @@ def rebalance_row(row):
 
 def remove_member_from_row(row, user_id, role_type: str):
     removed = []
+
+    if role_type == "s6":
+        promoted_slots = []
+
+        if (
+            isinstance(row.s6, dict)
+            and is_same_user(row.s6, user_id)
+            and row.s6.get("type") == "s6"
+        ):
+            removed.append(get_slot_display(row.s6))
+            row.s6 = ""
+
+        return removed, promoted_slots
 
     before_keys = get_official_keys(row)
 
@@ -206,4 +227,3 @@ def remove_member_from_row(row, user_id, role_type: str):
     print("遞補轉正資料：", promoted_slots)
 
     return removed, promoted_slots
-

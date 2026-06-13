@@ -42,6 +42,10 @@ class TimeSlot:
 
     backup: list[dict[str, Any]] = field(default_factory=list)
 
+    s6: Any = ""
+
+    car_type: str = ""
+
 
 @dataclass
 class Schedule:

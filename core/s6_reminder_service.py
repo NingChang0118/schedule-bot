@@ -31,6 +31,9 @@ def get_highest_runner_power(row):
 
 def get_s6_candidates(row):
 
+    if row.s6:
+        return []
+
     highest_runner_power = (
         get_highest_runner_power(row)
     )
@@ -128,7 +131,7 @@ def mark_s6_reminder_sent(
     sent_keys.add(key)
 
 
-def is_5_minutes_before_s6_slot(
+def is_30_minutes_before_s6_slot(
     schedule,
     row
 ):
@@ -144,7 +147,7 @@ def is_5_minutes_before_s6_slot(
     now = datetime.now()
 
     return (
-        slot_start - timedelta(minutes=5)
+        slot_start - timedelta(minutes=30)
         <= now
         < slot_start
     )
