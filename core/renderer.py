@@ -57,6 +57,8 @@ def get_backup_display(backup):
             return ""
 
         return get_slot_display(backup[0])
+    
+    return ""
 
 def get_time_display(time_text: str) -> str:
     try:
