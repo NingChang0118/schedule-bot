@@ -128,7 +128,7 @@ async def send_s6_reminder_for_row(
     row,
     force_send: bool = False
 ):
-    if has_s6_reminder_been_sent(
+    if not force_send and has_s6_reminder_been_sent(
         s6_reminded,
         schedule,
         row

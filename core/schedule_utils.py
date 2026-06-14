@@ -12,6 +12,9 @@ def normalize_car(car: str) -> str:
         "五": "五車",
     }
 
+    if car in ["測試", "測試車", "test"]:
+        return "測試車"
+
     return car_map.get(car, car)
 
 

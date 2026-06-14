@@ -136,15 +136,15 @@ def is_30_minutes_before_s6_slot(
     row
 ):
     try:
+        now = datetime.now()
+
         slot_start = datetime.strptime(
-            f"{schedule.date} {row.time[:4]}",
-            "%m/%d %H%M"
+            f"{now.year}/{schedule.date} {row.time[:4]}",
+            "%Y/%m/%d %H%M"
         )
 
     except Exception:
         return False
-
-    now = datetime.now()
 
     return (
         slot_start - timedelta(minutes=30)

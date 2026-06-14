@@ -259,10 +259,15 @@ class BookingCog(commands.Cog):
 
         update_text = f"✅ 班表已更新 `{car} {date}`\n"
 
-        update_text += (
-            f"跑者報班：`{joined_times[0]}` ~ "
-            f"`{joined_times[-1]}`：`{display_name}`"
-        )
+        if joined_times:
+            update_text += (
+                f"跑者報班：`{joined_times[0]}` ~ "
+                f"`{joined_times[-1]}`：`{display_name}`"
+            )
+        else:
+            update_text += (
+                f"跑者報班：`{time}`：`{display_name}`"
+            )
 
         await interaction.response.send_message(
             public_text
@@ -364,10 +369,15 @@ class BookingCog(commands.Cog):
 
         update_text = f"✅ 班表已更新 `{car} {date}`\n"
 
-        update_text += (
-            f"S6報班：`{joined_times[0]}` ~ "
-            f"`{joined_times[-1]}`：`{display_name}`"
-        )
+        if joined_times:
+            update_text += (
+                f"S6報班：`{joined_times[0]}` ~ "
+                f"`{joined_times[-1]}`：`{display_name}`"
+            )
+        else:
+            update_text += (
+                f"S6報班：`{time}`：`{display_name}`"
+            )
 
         await interaction.response.send_message(
             public_text

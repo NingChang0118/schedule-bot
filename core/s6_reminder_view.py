@@ -33,6 +33,9 @@ from core.s6_reminder_service import (
     get_highest_runner_power
 )
 
+from core.schedule_edit_service import (
+    fill_s6_schedule
+)
 
 class S6ReminderView(discord.ui.View):
     def __init__(
@@ -142,7 +145,19 @@ class S6ReminderView(discord.ui.View):
             power=s6_data["power"]
         )
 
-        row.s6 = slot_data
+        result = fill_s6_schedule(
+            schedule,
+            interaction.user.id,
+            slot_data,
+            self.time
+        )
+
+        if not result["ok"]:
+            await interaction.response.send_message(
+                "❌ S6報班失敗，請稍後再試。",
+                ephemeral=True
+            )
+            return
 
         save_schedule(
             schedule

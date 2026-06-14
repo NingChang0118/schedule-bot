@@ -275,6 +275,10 @@ def fill_s6_schedule(schedule, user_id, slot_data, time: str):
     for target_time, target_row in target_rows:
         target_row.s6 = slot_data
 
+        target_row.backup.append(slot_data)
+
+        rebalance_row(target_row)
+
         joined_times.append(target_time)
 
     return {

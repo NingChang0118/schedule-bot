@@ -71,6 +71,21 @@ def get_time_display(time_text: str) -> str:
     except Exception:
         return time_text
 
+def get_s6_display(slot):
+    if not slot:
+        return ""
+
+    if isinstance(slot, str):
+        return slot
+
+    return slot.get("name", "")
+
+def is_s6_slot(slot) -> bool:
+    return (
+        isinstance(slot, dict)
+        and slot.get("type") == "s6"
+    )
+
 def render_schedule(schedule: Schedule) -> Path:
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -142,7 +157,19 @@ def render_schedule(schedule: Schedule) -> Path:
             get_slot_display(row.slot_4),
             get_slot_display(row.slot_5),
             get_backup_display(row.backup),
-            get_slot_display(row.s6),
+            get_s6_display(row.s6),
+            row.car_type
+        ]
+
+        raw_slots = [
+            row.time,
+            row.slot_1,
+            row.slot_2,
+            row.slot_3,
+            row.slot_4,
+            row.slot_5,
+            row.backup,
+            row.s6,
             row.car_type
         ]
 
@@ -150,7 +177,11 @@ def render_schedule(schedule: Schedule) -> Path:
             x1 = x_positions[col_index]
             x2 = x_positions[col_index + 1]
 
-            if col_index == 6:
+            raw_value = raw_slots[col_index]
+
+            if col_index in [1, 2, 3, 4, 5] and is_s6_slot(raw_value):
+                fill = "#C6EFCE"
+            elif col_index == 6:
                 fill = "#FFE5B4"
             elif col_index == 7:
                 fill = "#D9F2D9"

@@ -35,4 +35,4 @@ def is_pusher_slot(slot) -> bool:
     if isinstance(slot, str):
         return "(" in slot and ")" in slot
 
-    return slot.get("type") == "pusher"
+    return slot.get("type") in ["pusher", "s6"]

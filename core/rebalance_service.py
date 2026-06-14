@@ -105,34 +105,73 @@ def rebalance_row(row):
 
     runners = active_runners + backup_runners
 
-    pushers = [
+    active_s6_pushers = [
         slot
         for slot in slots
-        if is_pusher_slot(slot)
+        if (
+            isinstance(slot, dict)
+            and slot.get("type") == "s6"
+        )
+    ]
+
+    backup_s6_pushers = [
+        slot
+        for slot in row.backup
+        if (
+            isinstance(slot, dict)
+            and slot.get("type") == "s6"
+        )
+    ]
+
+    all_s6_pushers = active_s6_pushers + backup_s6_pushers
+
+    active_pushers = [
+        slot
+        for slot in slots
+        if (
+            is_pusher_slot(slot)
+            and not (
+                isinstance(slot, dict)
+                and slot.get("type") == "s6"
+            )
+        )
     ]
 
     backup_pushers = [
         slot
         for slot in row.backup
-        if is_pusher_slot(slot)
+        if (
+            is_pusher_slot(slot)
+            and not (
+                isinstance(slot, dict)
+                and slot.get("type") == "s6"
+            )
+        )
     ]
 
-    all_pushers = pushers + backup_pushers
+    all_pushers = active_pushers + backup_pushers
 
     all_pushers.sort(
         key=get_slot_rate,
         reverse=True
     )
 
-    max_pusher_count = 5 - len(runners)
+    max_member_count = 5 - len(runners)
 
-    if max_pusher_count < 0:
-        max_pusher_count = 0
+    if max_member_count < 0:
+        max_member_count = 0
 
-    active_pushers = all_pushers[:max_pusher_count]
-    backup_pushers = all_pushers[max_pusher_count:]
+    selected_s6_pushers = all_s6_pushers[:max_member_count]
 
-    sorted_members = runners + active_pushers
+    remaining_pusher_count = max_member_count - len(selected_s6_pushers)
+
+    if remaining_pusher_count < 0:
+        remaining_pusher_count = 0
+
+    selected_pushers = all_pushers[:remaining_pusher_count]
+    backup_pushers = all_pushers[remaining_pusher_count:]
+
+    sorted_members = runners + selected_s6_pushers + selected_pushers
 
     row.slot_1 = sorted_members[0] if len(sorted_members) > 0 else ""
     row.slot_2 = sorted_members[1] if len(sorted_members) > 1 else ""
@@ -140,25 +179,21 @@ def rebalance_row(row):
     row.slot_4 = sorted_members[3] if len(sorted_members) > 3 else ""
     row.slot_5 = sorted_members[4] if len(sorted_members) > 4 else ""
 
-    row.backup = backup_pushers
+    row.backup = all_s6_pushers[len(selected_s6_pushers):] + backup_pushers
 
 
 def remove_member_from_row(row, user_id, role_type: str):
     removed = []
 
-    if role_type == "s6":
-        promoted_slots = []
-
-        if (
-            isinstance(row.s6, dict)
-            and is_same_user(row.s6, user_id)
-            and row.s6.get("type") == "s6"
-        ):
-            removed.append(get_slot_display(row.s6))
-            row.s6 = ""
-
-        return removed, promoted_slots
-
+    if (
+        role_type == "s6"
+        and isinstance(row.s6, dict)
+        and is_same_user(row.s6, user_id)
+        and row.s6.get("type") == "s6"
+    ):
+        removed.append(get_slot_display(row.s6))
+        row.s6 = ""
+    
     before_keys = get_official_keys(row)
 
     def should_remove(slot):
