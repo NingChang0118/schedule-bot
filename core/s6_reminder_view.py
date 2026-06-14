@@ -20,22 +20,46 @@ from core.slot_utils import (
     get_slot_display
 )
 
-from core.schedule_service import (
-    get_row_by_time
-)
-
 from core.discord_message_service import (
     send_log_to_channel,
     update_schedule_message
 )
 
 from core.s6_reminder_service import (
-    get_highest_runner_power
+    get_highest_runner_power,
+    is_user_valid_s6_candidate
 )
 
 from core.schedule_edit_service import (
     fill_s6_schedule
 )
+
+from core.schedule_service import get_row_by_time
+
+def is_user_already_in_row(row, user_id: int):
+    user_id = str(user_id)
+
+    slots = [
+        row.slot_1,
+        row.slot_2,
+        row.slot_3,
+        row.slot_4,
+        row.slot_5,
+        row.s6
+    ]
+
+    if isinstance(row.backup, list):
+        slots.extend(row.backup)
+
+    for slot in slots:
+        if not isinstance(slot, dict):
+            continue
+
+        if str(slot.get("user_id")) == user_id:
+            return True
+
+    return False
+
 
 class S6ReminderView(discord.ui.View):
     def __init__(
@@ -53,6 +77,20 @@ class S6ReminderView(discord.ui.View):
         self.car = schedule.car
         self.date = schedule.date
         self.time = row.time
+        self.closed = False
+
+    async def close_view(
+        self,
+        interaction: discord.Interaction
+    ):
+        self.closed = True
+
+        for child in self.children:
+            child.disabled = True
+
+        await interaction.response.edit_message(
+            view=self
+        )
 
     @discord.ui.button(
         label="接受S6",
@@ -63,6 +101,13 @@ class S6ReminderView(discord.ui.View):
         interaction: discord.Interaction,
         button: discord.ui.Button
     ):
+        if self.closed:
+            await interaction.response.send_message(
+                "❌ 這個 S6 邀請已經被處理過了。",
+                ephemeral=True
+            )
+            return
+
         schedule = get_schedule(
             self.period,
             self.car,
@@ -84,6 +129,16 @@ class S6ReminderView(discord.ui.View):
         if row is None:
             await interaction.response.send_message(
                 "❌ 找不到這個時段，無法填入 S6。",
+                ephemeral=True
+            )
+            return
+
+        if not is_user_valid_s6_candidate(
+            row,
+            interaction.user.id
+        ):
+            await interaction.response.send_message(
+                "❌ 你不是這個時段的 S6 提醒對象，不能接這個 S6。",
                 ephemeral=True
             )
             return
@@ -123,7 +178,7 @@ class S6ReminderView(discord.ui.View):
         )
 
         try:
-            s6_power = int(
+            s6_power = float(
                 s6_data.get("power", 0)
             )
 
@@ -154,14 +209,12 @@ class S6ReminderView(discord.ui.View):
 
         if not result["ok"]:
             await interaction.response.send_message(
-                "❌ S6報班失敗，請稍後再試。",
+                f"❌ S6報班失敗\nerror: {result.get('error')}\ntarget_time: {result.get('target_time')}",
                 ephemeral=True
             )
             return
 
-        save_schedule(
-            schedule
-        )
+        save_schedule(schedule)
 
         await update_schedule_message(
             self.bot,
@@ -175,16 +228,10 @@ class S6ReminderView(discord.ui.View):
         update_text = f"✅ 班表已更新 `{self.car} {self.date}`\n"
 
         update_text += (
-            f"S6報班：`{self.time}` ~ "
-            f"`{self.time}`：`{display_name}`"
+            f"S6報班：`{self.time}`：`{display_name}`"
         )
 
-        for child in self.children:
-            child.disabled = True
-
-        await interaction.response.edit_message(
-            view=self
-        )
+        await self.close_view(interaction)
 
         await interaction.followup.send(
             f"✅ S6報班成功 {self.car} {self.date} {self.time}",
@@ -206,7 +253,23 @@ class S6ReminderView(discord.ui.View):
         interaction: discord.Interaction,
         button: discord.ui.Button
     ):
-        await interaction.response.send_message(
+        if self.closed:
+            await interaction.response.send_message(
+                "❌ 這個 S6 邀請已經被處理過了。",
+                ephemeral=True
+            )
+            return
+
+        if not interaction.message:
+            await interaction.response.send_message(
+                "已取消本次 S6 邀請。",
+                ephemeral=True
+            )
+            return
+
+        await self.close_view(interaction)
+
+        await interaction.followup.send(
             "已取消本次 S6 邀請。",
             ephemeral=True
         )

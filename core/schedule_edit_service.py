@@ -270,12 +270,24 @@ def fill_s6_schedule(schedule, user_id, slot_data, time: str):
                 "joined_times": []
             }
 
+        if not already_in_row(target_row, user_id, "pusher"):
+            return {
+                "ok": False,
+                "error": "not_pusher",
+                "target_time": target_time,
+                "joined_times": []
+            }
+
     joined_times = []
 
     for target_time, target_row in target_rows:
-        target_row.s6 = slot_data
+        remove_member_from_row(
+            target_row,
+            user_id,
+            "pusher"
+        )
 
-        target_row.backup.append(slot_data)
+        target_row.s6 = slot_data
 
         rebalance_row(target_row)
 
@@ -286,4 +298,3 @@ def fill_s6_schedule(schedule, user_id, slot_data, time: str):
         "error": None,
         "joined_times": joined_times
     }
-

@@ -8,11 +8,23 @@ from core.renderer import render_schedule
 from config import (
     SCHEDULE_ADMIN_ROLE_ID,
     CURRENT_PERIOD,
+    S6_REMINDER_CHANNEL_ID
 )
 
 from core.schedule_utils import (
     normalize_car,
     normalize_date,
+    normalize_time
+)
+
+from core.emergency_recruit_service import (
+    needs_emergency_recruit,
+    get_missing_count,
+    build_emergency_recruit_message
+)
+
+from core.reminder_scan_service import (
+    send_s6_reminder_for_row
 )
 
 from core.schedule_edit_service import (
@@ -21,12 +33,19 @@ from core.schedule_edit_service import (
     fill_s6_schedule
 )
 
+from core.boarding_reminder_service import (
+    get_boarding_reminder_user_ids,
+    get_boarding_reminder_channel_id,
+    build_boarding_reminder_message
+)
+
 from core.schedule_service import get_row_by_time
 from core.rebalance_service import rebalance_row
 
 class AdminCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.force_s6_reminded = set()
 
     async def update_schedule_message(self, schedule):
         image_path = render_schedule(schedule)
@@ -540,6 +559,248 @@ class AdminCog(commands.Cog):
             f"刪除資料數：{deleted_count}\n"
             f"班表訊息刪除失敗："
             f"{message_delete_failed_count}",
+            ephemeral=True
+        )
+
+    @app_commands.command(
+        name="強制發送s6提醒",
+        description="不檢查時間，強制發送指定時段的 S6 提醒"
+    )
+    async def force_send_s6_reminder(
+        self,
+        interaction: discord.Interaction,
+        car: str,
+        date: str,
+        time: str
+    ):
+        if not self.is_schedule_admin(interaction):
+            await interaction.response.send_message(
+                "❌ 你沒有強制發送 S6 提醒的權限。",
+                ephemeral=True
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        period = CURRENT_PERIOD
+        car = normalize_car(car)
+        date = normalize_date(date)
+
+        schedule = get_schedule(period, car, date)
+
+        if schedule is None:
+            await interaction.followup.send(
+                f"❌ 找不到 `{car} {date}` 的班表。",
+                ephemeral=True
+            )
+            return
+        
+        time = normalize_time(time)
+
+        if time is None:
+            await interaction.followup.send(
+                "❌ 時間格式錯誤。",
+                ephemeral=True
+            )
+            return
+
+        row = get_row_by_time(schedule, time)
+
+        if row is None:
+            await interaction.followup.send(
+                f"❌ 找不到 `{time}` 時段。",
+                ephemeral=True
+            )
+            return
+
+        sent = await send_s6_reminder_for_row(
+            self.bot,
+            set(),
+            schedule,
+            row,
+            force_send=True
+        )
+
+        if not sent:
+            await interaction.followup.send(
+                f"⚠️ `{car} {date} {time}` 沒有符合條件的 S6 通知對象。",
+                ephemeral=True
+            )
+            return
+
+        await interaction.followup.send(
+            f"✅ 已強制發送 `{car} {date} {time}` 的 S6 提醒。",
+            ephemeral=True
+        )
+
+    @app_commands.command(
+        name="強制發送上車提醒",
+        description="不檢查時間，強制發送指定時段的上車提醒"
+    )
+    async def force_send_boarding_reminder(
+        self,
+        interaction: discord.Interaction,
+        car: str,
+        date: str,
+        time: str
+    ):
+        if not self.is_schedule_admin(interaction):
+            await interaction.response.send_message(
+                "❌ 你沒有強制發送上車提醒的權限。",
+                ephemeral=True
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        period = CURRENT_PERIOD
+        car = normalize_car(car)
+        date = normalize_date(date)
+
+        schedule = get_schedule(period, car, date)
+
+        if schedule is None:
+            await interaction.followup.send(
+                f"❌ 找不到 `{car} {date}` 的班表。",
+                ephemeral=True
+            )
+            return
+
+        time = normalize_time(time)
+
+        if time is None:
+            await interaction.followup.send(
+                "❌ 時間格式錯誤。",
+                ephemeral=True
+            )
+            return
+
+        row = get_row_by_time(schedule, time)
+
+        if row is None:
+            await interaction.followup.send(
+                f"❌ 找不到 `{time}` 時段。",
+                ephemeral=True
+            )
+            return
+
+        user_ids = get_boarding_reminder_user_ids(
+            row
+        )
+
+        if not user_ids:
+            await interaction.followup.send(
+                f"⚠️ `{car} {date} {time}` 沒有上車提醒通知對象。",
+                ephemeral=True
+            )
+            return
+
+        channel_id = get_boarding_reminder_channel_id(
+            schedule
+        )
+
+        if channel_id is None:
+            await interaction.followup.send(
+                f"❌ 找不到 `{car}` 對應的上車提醒頻道。",
+                ephemeral=True
+            )
+            return
+
+        channel = self.bot.get_channel(channel_id)
+
+        if channel is None:
+            channel = await self.bot.fetch_channel(channel_id)
+
+        message = build_boarding_reminder_message(
+            schedule,
+            row,
+            user_ids
+        )
+
+        await channel.send(message)
+
+        await interaction.followup.send(
+            f"✅ 已強制發送 `{car} {date} {time}` 的上車提醒。",
+            ephemeral=True
+        )
+
+    @app_commands.command(
+        name="強制發送緊急招募",
+        description="不檢查時間，強制發送指定時段的緊急招募"
+    )
+    async def force_send_emergency_recruit(
+        self,
+        interaction: discord.Interaction,
+        car: str,
+        date: str,
+        time: str
+    ):
+        if not self.is_schedule_admin(interaction):
+            await interaction.response.send_message(
+                "❌ 你沒有強制發送緊急招募的權限。",
+                ephemeral=True
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        period = CURRENT_PERIOD
+        car = normalize_car(car)
+        date = normalize_date(date)
+
+        schedule = get_schedule(period, car, date)
+
+        if schedule is None:
+            await interaction.followup.send(
+                f"❌ 找不到 `{car} {date}` 的班表。",
+                ephemeral=True
+            )
+            return
+
+        time = normalize_time(time)
+
+        if time is None:
+            await interaction.followup.send(
+                "❌ 時間格式錯誤。",
+                ephemeral=True
+            )
+            return
+
+        row = get_row_by_time(schedule, time)
+
+        if row is None:
+            await interaction.followup.send(
+                f"❌ 找不到 `{time}` 時段。",
+                ephemeral=True
+            )
+            return
+
+        if not needs_emergency_recruit(row):
+            await interaction.followup.send(
+                f"⚠️ `{car} {date} {time}` 目前沒有缺額，不發送緊急招募。",
+                ephemeral=True
+            )
+            return
+
+        channel = self.bot.get_channel(
+            schedule.channel_id
+        )
+
+        if channel is None:
+            channel = await self.bot.fetch_channel(
+                schedule.channel_id
+            )
+
+        message = build_emergency_recruit_message(
+            schedule,
+            row
+        )
+
+        await channel.send(message)
+
+        await interaction.followup.send(
+            f"✅ 已強制發送 `{car} {date} {time}` 的緊急招募。\n"
+            f"目前缺額：{get_missing_count(row)}",
             ephemeral=True
         )
 

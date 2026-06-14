@@ -34,14 +34,16 @@ def normalize_date(date: str) -> str:
 
 
 def normalize_time(time_str: str) -> str:
+    time_str = time_str.strip()
+
     if "-" not in time_str:
         return time_str
 
     try:
         start, end = time_str.split("-")
 
-        start = int(start)
-        end = int(end)
+        start = parse_time_hour(start)
+        end = parse_time_hour(end)
 
         return f"{start:02d}00-{end:02d}00"
 
@@ -49,15 +51,26 @@ def normalize_time(time_str: str) -> str:
         return time_str
 
 
+def parse_time_hour(text: str) -> int:
+    text = text.strip()
+
+    if len(text) == 4 and text.isdigit():
+        return int(text[:2])
+
+    return int(text)
+
+
 def expand_time_range(time_str: str) -> list[str]:
+    time_str = time_str.strip()
+
     if "-" not in time_str:
         return [normalize_time(time_str)]
 
     try:
         start, end = time_str.split("-")
 
-        start = int(start)
-        end = int(end)
+        start = parse_time_hour(start)
+        end = parse_time_hour(end)
 
         if end <= start:
             return [normalize_time(time_str)]

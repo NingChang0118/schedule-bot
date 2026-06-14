@@ -91,6 +91,33 @@ def rebalance_row(row):
         row.slot_5
     ]
 
+    def dedupe_slots(slot_list):
+        seen = set()
+        result = []
+
+        for slot in slot_list:
+            if not isinstance(slot, dict):
+                continue
+
+            user_id = slot.get("user_id")
+            role_type = slot.get("type")
+
+            if user_id is None or role_type is None:
+                continue
+
+            key = (
+                str(user_id),
+                role_type
+            )
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            result.append(slot)
+
+        return result
+
     active_runners = [
         slot
         for slot in slots
@@ -103,83 +130,67 @@ def rebalance_row(row):
         if is_runner_slot(slot)
     ]
 
-    runners = active_runners + backup_runners
+    runners = dedupe_slots(
+        active_runners + backup_runners
+    )
 
-    active_s6_pushers = [
-        slot
-        for slot in slots
-        if (
-            isinstance(slot, dict)
-            and slot.get("type") == "s6"
-        )
-    ]
+    s6_slots = []
 
-    backup_s6_pushers = [
-        slot
-        for slot in row.backup
-        if (
-            isinstance(slot, dict)
-            and slot.get("type") == "s6"
-        )
-    ]
-
-    all_s6_pushers = active_s6_pushers + backup_s6_pushers
+    if (
+        isinstance(row.s6, dict)
+        and row.s6.get("type") == "s6"
+    ):
+        s6_slots.append(row.s6)
 
     active_pushers = [
         slot
         for slot in slots
-        if (
-            is_pusher_slot(slot)
-            and not (
-                isinstance(slot, dict)
-                and slot.get("type") == "s6"
-            )
-        )
+        if is_pusher_slot(slot)
     ]
 
     backup_pushers = [
         slot
         for slot in row.backup
-        if (
-            is_pusher_slot(slot)
-            and not (
-                isinstance(slot, dict)
-                and slot.get("type") == "s6"
-            )
+        if is_pusher_slot(slot)
+    ]
+
+    pushers = dedupe_slots(
+        active_pushers + backup_pushers
+    )
+
+    pushers = [
+        slot
+        for slot in pushers
+        if not (
+            isinstance(row.s6, dict)
+            and is_same_user(slot, row.s6)
         )
     ]
 
-    all_pushers = active_pushers + backup_pushers
-
-    all_pushers.sort(
+    pushers.sort(
         key=get_slot_rate,
         reverse=True
     )
 
-    max_member_count = 5 - len(runners)
+    sorted_members = runners + s6_slots + pushers
 
-    if max_member_count < 0:
-        max_member_count = 0
+    official_members = sorted_members[:5]
+    backup_members = sorted_members[5:]
 
-    selected_s6_pushers = all_s6_pushers[:max_member_count]
+    row.slot_1 = official_members[0] if len(official_members) > 0 else ""
+    row.slot_2 = official_members[1] if len(official_members) > 1 else ""
+    row.slot_3 = official_members[2] if len(official_members) > 2 else ""
+    row.slot_4 = official_members[3] if len(official_members) > 3 else ""
+    row.slot_5 = official_members[4] if len(official_members) > 4 else ""
 
-    remaining_pusher_count = max_member_count - len(selected_s6_pushers)
-
-    if remaining_pusher_count < 0:
-        remaining_pusher_count = 0
-
-    selected_pushers = all_pushers[:remaining_pusher_count]
-    backup_pushers = all_pushers[remaining_pusher_count:]
-
-    sorted_members = runners + selected_s6_pushers + selected_pushers
-
-    row.slot_1 = sorted_members[0] if len(sorted_members) > 0 else ""
-    row.slot_2 = sorted_members[1] if len(sorted_members) > 1 else ""
-    row.slot_3 = sorted_members[2] if len(sorted_members) > 2 else ""
-    row.slot_4 = sorted_members[3] if len(sorted_members) > 3 else ""
-    row.slot_5 = sorted_members[4] if len(sorted_members) > 4 else ""
-
-    row.backup = all_s6_pushers[len(selected_s6_pushers):] + backup_pushers
+    row.backup = [
+        slot
+        for slot in backup_members
+        if not (
+            isinstance(slot, dict)
+            and slot.get("type") == "s6"
+        )
+    ]
 
 
 def remove_member_from_row(row, user_id, role_type: str):

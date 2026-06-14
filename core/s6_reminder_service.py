@@ -1,14 +1,16 @@
 from core.slot_utils import get_all_slots
 from core.s6_pusher_storage import get_s6_pusher
+from core.schedule_utils import (
+    normalize_car,
+    normalize_date
+)
 from datetime import datetime, timedelta
 
 
 def get_highest_runner_power(row):
-
     highest_power = 0
 
     for slot in get_all_slots(row):
-
         if not slot:
             continue
 
@@ -16,7 +18,7 @@ def get_highest_runner_power(row):
             continue
 
         try:
-            power = int(slot.get("power", 0))
+            power = float(slot.get("power", 0))
 
         except Exception:
             power = 0
@@ -30,13 +32,10 @@ def get_highest_runner_power(row):
 
 
 def get_s6_candidates(row):
-
     if row.s6:
         return []
 
-    highest_runner_power = (
-        get_highest_runner_power(row)
-    )
+    highest_runner_power = get_highest_runner_power(row)
 
     if highest_runner_power <= 0:
         return []
@@ -44,7 +43,6 @@ def get_s6_candidates(row):
     candidates = []
 
     for slot in get_all_slots(row):
-
         if not slot:
             continue
 
@@ -53,15 +51,16 @@ def get_s6_candidates(row):
 
         user_id = slot.get("user_id")
 
-        s6_data = get_s6_pusher(
-            user_id
-        )
+        if user_id is None:
+            continue
+
+        s6_data = get_s6_pusher(user_id)
 
         if s6_data is None:
             continue
 
         try:
-            s6_power = int(
+            s6_power = float(
                 s6_data.get("power", 0)
             )
 
@@ -82,15 +81,28 @@ def get_s6_candidates(row):
 
 
 def get_s6_reminder_user_ids(row):
-
-    candidates = get_s6_candidates(
-        row
-    )
+    candidates = get_s6_candidates(row)
 
     return [
         candidate["user_id"]
         for candidate in candidates
     ]
+
+
+def is_user_valid_s6_candidate(
+    row,
+    user_id
+):
+    user_id = str(user_id)
+
+    if row.s6:
+        return False
+
+    for candidate in get_s6_candidates(row):
+        if str(candidate["user_id"]) == user_id:
+            return True
+
+    return False
 
 
 def get_s6_reminder_key(
@@ -100,7 +112,7 @@ def get_s6_reminder_key(
     return (
         f"{schedule.period}:"
         f"{schedule.car}:"
-        f"{schedule.date}:"
+        f"{normalize_date(schedule.date)}:"
         f"{row.time}"
     )
 
@@ -131,20 +143,58 @@ def mark_s6_reminder_sent(
     sent_keys.add(key)
 
 
+def parse_slot_start_datetime(
+    schedule,
+    row
+):
+    now = datetime.now()
+
+    date_text = normalize_date(
+        schedule.date
+    )
+
+    time_text = row.time
+
+    candidates = []
+
+    for year in [
+        now.year - 1,
+        now.year,
+        now.year + 1
+    ]:
+        try:
+            slot_start = datetime.strptime(
+                f"{year}/{date_text} {time_text[:4]}",
+                "%Y/%m/%d %H%M"
+            )
+
+            candidates.append(slot_start)
+
+        except Exception:
+            continue
+
+    if not candidates:
+        return None
+
+    return min(
+        candidates,
+        key=lambda dt: abs(dt - now)
+    )
+
+
 def is_30_minutes_before_s6_slot(
     schedule,
     row
 ):
-    try:
-        now = datetime.now()
+    slot_start = parse_slot_start_datetime(
+        schedule,
+        row
+    )
 
-        slot_start = datetime.strptime(
-            f"{now.year}/{schedule.date} {row.time[:4]}",
-            "%Y/%m/%d %H%M"
-        )
-
-    except Exception:
+    if slot_start is None:
         return False
+
+    now = datetime.now()
 
     return (
         slot_start - timedelta(minutes=30)
@@ -174,4 +224,3 @@ def build_s6_reminder_message(
         f"日期：{schedule.date}\n"
         f"時間：{row.time}"
     )
-
