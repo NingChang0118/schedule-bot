@@ -21,6 +21,9 @@ from core.schedule_edit_service import (
     fill_s6_schedule
 )
 
+from core.schedule_service import get_row_by_time
+from core.rebalance_service import rebalance_row
+
 class AdminCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -54,6 +57,12 @@ class AdminCog(commands.Cog):
             for role in interaction.user.roles
         )
 
+    def get_slot_value(self, slot, key, default=None):
+        if isinstance(slot, dict):
+            return slot.get(key, default)
+
+        return getattr(slot, key, default)
+
     def rebuild_schedule_from_current_data(self, schedule):
         new_schedule = create_empty_schedule(
             schedule.period,
@@ -65,7 +74,17 @@ class AdminCog(commands.Cog):
         new_schedule.message_id = schedule.message_id
 
         for row in schedule.rows:
-            slots = [
+            new_row = get_row_by_time(
+                new_schedule,
+                row.time
+            )
+
+            if new_row is None:
+                continue
+
+            new_row.car_type = row.car_type
+
+            old_slots = [
                 row.slot_1,
                 row.slot_2,
                 row.slot_3,
@@ -73,48 +92,26 @@ class AdminCog(commands.Cog):
                 row.slot_5
             ]
 
-            slots.extend(row.backup)
-
-            for slot in slots:
+            for slot in old_slots:
                 if not isinstance(slot, dict):
                     continue
 
-                slot_type = slot.get("type")
-                user_id = slot.get("user_id")
+                new_row.backup.append(slot)
 
-                if user_id is None:
+            for slot in row.backup:
+                if not isinstance(slot, dict):
                     continue
 
-                if slot_type == "runner":
-                    fill_runner_schedule(
-                        new_schedule,
-                        user_id,
-                        slot,
-                        row.time,
-                        row.car_type
-                    )
-
-                elif slot_type == "pusher":
-                    fill_pusher_schedule(
-                        new_schedule,
-                        user_id,
-                        slot,
-                        row.time
-                    )
+                new_row.backup.append(slot)
 
             if isinstance(row.s6, dict):
-                user_id = row.s6.get("user_id")
+                new_row.s6 = row.s6
+                new_row.backup.append(row.s6)
 
-                if user_id is not None:
-                    fill_s6_schedule(
-                        new_schedule,
-                        user_id,
-                        row.s6,
-                        row.time
-                    )
+            rebalance_row(new_row)
 
         return new_schedule
-
+    
     @app_commands.command(
         name="重建班表",
         description="重新產生班表圖片"
@@ -189,6 +186,50 @@ class AdminCog(commands.Cog):
         new_schedule = self.rebuild_schedule_from_current_data(
             schedule
         )
+
+        old_count = 0
+        new_count = 0
+
+        for row in schedule.rows:
+            for slot in [
+                row.slot_1,
+                row.slot_2,
+                row.slot_3,
+                row.slot_4,
+                row.slot_5
+            ]:
+                if slot:
+                    old_count += 1
+
+            old_count += len(row.backup)
+
+            if row.s6:
+                old_count += 1
+
+        for row in new_schedule.rows:
+            for slot in [
+                row.slot_1,
+                row.slot_2,
+                row.slot_3,
+                row.slot_4,
+                row.slot_5
+            ]:
+                if slot:
+                    new_count += 1
+
+            new_count += len(row.backup)
+
+            if row.s6:
+                new_count += 1
+
+        if old_count > 0 and new_count == 0:
+            await interaction.followup.send(
+                "❌ 重建中止：原班表有資料，但重建結果為空。\n"
+                "為避免資料被覆蓋，已取消儲存。",
+                ephemeral=True
+            )
+            return
+
 
         save_schedule(
             new_schedule

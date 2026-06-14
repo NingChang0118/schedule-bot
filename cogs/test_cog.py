@@ -118,7 +118,7 @@ class TestCog(commands.Cog):
             "test_runner_1",
             "跑者A",
             "runner",
-            power="350000"
+            power="35.0"
         )
 
         target_row.slot_2 = make_slot(
