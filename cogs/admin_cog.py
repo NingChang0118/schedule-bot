@@ -42,6 +42,10 @@ from core.boarding_reminder_service import (
 from core.schedule_service import get_row_by_time
 from core.rebalance_service import rebalance_row
 
+from core.manual_move_service import (
+    move_formal_member
+)
+
 class AdminCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -801,6 +805,83 @@ class AdminCog(commands.Cog):
         await interaction.followup.send(
             f"✅ 已強制發送 `{car} {date} {time}` 的緊急招募。\n"
             f"目前缺額：{get_missing_count(row)}",
+            ephemeral=True
+        )
+
+    @app_commands.command(
+        name="移動正式成員",
+        description="手動調整正式成員位置"
+    )
+    async def move_formal_member_command(
+        self,
+        interaction: discord.Interaction,
+        from_car: str,
+        date: str,
+        from_time: str,
+        from_slot: int,
+        to_car: str,
+        to_time: str,
+        to_slot: int
+    ):
+        if not self.is_schedule_admin(interaction):
+            await interaction.response.send_message(
+                "❌ 你沒有移動正式成員的權限。",
+                ephemeral=True
+            )
+            return
+
+        await interaction.response.defer(
+            ephemeral=True
+        )
+
+        success, message = move_formal_member(
+            period=CURRENT_PERIOD,
+            from_car=from_car,
+            date=date,
+            from_time=from_time,
+            from_slot=from_slot,
+            to_car=to_car,
+            to_time=to_time,
+            to_slot=to_slot
+        )
+
+        if not success:
+            await interaction.followup.send(
+                message,
+                ephemeral=True
+            )
+            return
+
+        from_schedule = get_schedule(
+            CURRENT_PERIOD,
+            normalize_car(from_car),
+            normalize_date(date)
+        )
+
+        to_schedule = get_schedule(
+            CURRENT_PERIOD,
+            normalize_car(to_car),
+            normalize_date(date)
+        )
+
+        if from_schedule is not None:
+            await self.update_schedule_message(
+                from_schedule
+            )
+
+        if (
+            to_schedule is not None
+            and (
+                from_car != to_car
+                or from_schedule.message_id != to_schedule.message_id
+            )
+        ):
+            await self.update_schedule_message(
+                to_schedule
+            )
+
+        await interaction.followup.send(
+            message,
             ephemeral=True
         )
 

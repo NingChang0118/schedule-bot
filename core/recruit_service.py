@@ -68,3 +68,31 @@ def build_recruit_message(
     text += "\n請使用 `/報班` 補班。"
 
     return text
+
+def build_daily_recruit_message(
+    role_id: int,
+    date: str,
+    car_sections: list
+):
+    role_mention = f"<@&{role_id}>"
+
+    text = (
+        f"{role_mention}\n\n"
+        f"🚨 **每日缺額招募** 🚨\n\n"
+        f"日期：{date}\n\n"
+    )
+
+    for car, recruit_rows in car_sections:
+        text += f"【{car}】\n"
+
+        for time_text, missing_count in recruit_rows:
+            text += (
+                f"• {time_text}"
+                f"（缺 {missing_count} 人）\n"
+            )
+
+        text += "\n"
+
+    text += "請使用 `/報班` 補班。"
+
+    return text
