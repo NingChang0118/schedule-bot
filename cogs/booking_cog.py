@@ -128,6 +128,8 @@ class BookingCog(commands.Cog):
         joined_times = result["joined_times"]
         backup_times = result["backup_times"]
 
+        await interaction.response.defer(ephemeral=False)
+
         save_schedule(schedule)
 
         await update_schedule_message(
@@ -154,7 +156,7 @@ class BookingCog(commands.Cog):
                 f"`{backup_times[-1]}`：`{display_name}`"
             )
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             public_text
         )
 
@@ -245,6 +247,8 @@ class BookingCog(commands.Cog):
 
         joined_times = result["joined_times"]
 
+        await interaction.response.defer(ephemeral=False)
+
         save_schedule(schedule)
 
         await update_schedule_message(
@@ -269,7 +273,7 @@ class BookingCog(commands.Cog):
                 f"跑者報班：`{time}`：`{display_name}`"
             )
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             public_text
         )
 
@@ -355,6 +359,8 @@ class BookingCog(commands.Cog):
 
         joined_times = result["joined_times"]
 
+        await interaction.response.defer(ephemeral=False)
+
         save_schedule(schedule)
 
         await update_schedule_message(
@@ -379,7 +385,7 @@ class BookingCog(commands.Cog):
                 f"S6報班：`{time}`：`{display_name}`"
             )
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             public_text
         )
 
