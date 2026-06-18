@@ -1,7 +1,7 @@
-# Schedule Bot v1.5.0 Beta
+# Schedule Bot v1.5.6 Beta
 
 Status:
-🧪 Closed Beta Testing
+🧪 Public Beta Testing (171 LN WL2)
 
 > 為 Discord 車隊打造的智慧排班管理與營運系統
 
@@ -189,6 +189,30 @@ Schedule Bot 的目標就是將上述流程自動化。
 
 ---
 
+## 📢 每日自動缺額招募
+
+支援：
+
+* 每日 00:00 自動掃描缺額
+* 自動整合多車缺額資訊
+* Discord 身分組通知
+* 排除測試車班表
+* 防止重複發送
+* 台灣時區支援
+
+---
+
+## 👥 正式成員管理
+
+支援：
+
+* 管理員手動移動正式成員
+* 跨車移動
+* 跨時段移動
+* 自動更新班表圖片
+
+---
+
 ## 🚗 上車提醒系統
 
 發車前 5 分鐘：
@@ -281,6 +305,12 @@ Schedule Bot 的目標就是將上述流程自動化。
 推車時數 - 跑者時數 = 結算時數
 ```
 
+補充規則：
+
+* 僅統計正式車輛資料
+* 測試車班表不計入個人時數統計
+* 測試車班表不計入當期累積時數統計
+
 ---
 
 # 🏗️ 系統架構
@@ -305,8 +335,11 @@ cogs
 core
 ├─ backup_service.py
 ├─ boarding_reminder_service.py
+├─ daily_recruit_service.py
+├─ daily_recruit_state.py
 ├─ discord_message_service.py
 ├─ emergency_recruit_service.py
+├─ manual_move_service.py
 ├─ models.py
 ├─ my_schedule_service.py
 ├─ profile_sync_service.py
@@ -341,6 +374,7 @@ core
 * discord.py 2.x
 * Pillow
 * python-dotenv
+* tzdata
 
 ### 資料儲存
 
@@ -348,6 +382,7 @@ core
 * pushers.json
 * runners.json
 * s6_pushers.json
+* recruit_state.json
 
 ### 圖片生成
 
@@ -355,9 +390,33 @@ core
 
 ---
 
-# 🚀 Version 1.5.0 Beta
+# 🚀 Version History
 
-## 新增
+## Version 1.5.6 Beta
+
+### 新增
+
+* 每日自動缺額招募系統
+* 正式成員手動移動功能
+
+### 修正
+
+* 修正 S6 綜合力判定（int → float）
+* 修正 S6 時段查找邏輯
+* 修正時間區間解析問題
+* 修正跑者報班 Interaction Timeout
+
+### 優化
+
+* 缺額招募訊息整合為單一通知
+* 防止 Bot 重啟後重複發送缺額招募
+* 時數統計排除測試車班表
+* 正式環境與測試環境隔離
+* 新增台灣時區支援
+
+## Version 1.5.0 Beta
+
+### 新增
 
 * 跑者車種系統
 * S6 報班系統
@@ -366,7 +425,7 @@ core
 * 登記資料查詢功能
 * Profile Sync
 
-## 重構
+### 重構
 
 * ScheduleCog 完全拆分
 * BookingCog
@@ -376,7 +435,7 @@ core
 * RecruitCog
 * ReminderCog
 
-## 優化
+### 優化
 
 * 跑者報班邏輯重構
 * 跑者砍班邏輯重構
@@ -412,20 +471,22 @@ core
 * 跑者車種系統
 * 跑者砍班重構
 
+### 2026/06/15
+
+* v1.5.6 Beta
+* 每日自動缺額招募
+* 正式成員手動移動
+* 時數統計排除測試車
+* 報班超時問題修正
+
 ---
 
 # 🔮 未來規劃
 
-## v1.5.1
-
-* 系統穩定性檢查
-* Code Review
-* Bug Fix
-* 封閉測試驗證
-
 ## v1.6.0
 
-* 排行榜系統優化
+* 補位獎勵系統
+* 活動期數管理
 * 車隊營運統計
 * 管理查詢工具
 
