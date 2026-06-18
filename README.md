@@ -1,7 +1,7 @@
 # Schedule Bot v1.5.6 Beta
 
 Status:
-🧪 Public Beta Testing (171 LN WL2)
+🧪 Public Beta Testing
 
 > 為 Discord 車隊打造的智慧排班管理與營運系統
 
