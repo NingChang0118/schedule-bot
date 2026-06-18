@@ -1,5 +1,6 @@
 from core.storage import load_all, dict_to_schedule
 from core.slot_utils import is_same_user
+from config import RECRUIT_CARS
 
 def get_user_hours(
     user_id,
@@ -14,6 +15,9 @@ def get_user_hours(
 
     for schedule_data in all_data.values():
         schedule = dict_to_schedule(schedule_data)
+    
+        if schedule.car not in RECRUIT_CARS:
+            continue
 
         if current_period is not None:
             if schedule.period != current_period:
@@ -56,6 +60,9 @@ def get_period_total_hours(current_period):
 
     for schedule_data in all_data.values():
         schedule = dict_to_schedule(schedule_data)
+
+        if schedule.car not in RECRUIT_CARS:
+            continue
 
         if schedule.period != current_period:
             continue
