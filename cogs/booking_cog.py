@@ -47,6 +47,10 @@ from core.discord_permission_utils import (
     has_role
 )
 
+from core.auto_schedule_service import (
+    ensure_schedule_for_booking
+)
+
 class BookingCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -69,7 +73,6 @@ class BookingCog(commands.Cog):
             )
             return
 
-        period = CURRENT_PERIOD
         car = normalize_car(car)
         date = normalize_date(date)
 
@@ -93,7 +96,12 @@ class BookingCog(commands.Cog):
 
         display_name = get_slot_display(slot_data)
 
-        schedule = get_schedule(period, car, date)
+        schedule, _ = await ensure_schedule_for_booking(
+            self.bot,
+            interaction,
+            car,
+            date
+        )
 
         if schedule is None:
             await interaction.response.send_message(
@@ -185,7 +193,6 @@ class BookingCog(commands.Cog):
             )
             return
 
-        period = CURRENT_PERIOD
         car = normalize_car(car)
         date = normalize_date(date)
 
@@ -212,7 +219,12 @@ class BookingCog(commands.Cog):
 
         display_name = get_slot_display(slot_data)
 
-        schedule = get_schedule(period, car, date)
+        schedule, _ = await ensure_schedule_for_booking(
+            self.bot,
+            interaction,
+            car,
+            date
+        )
 
         if schedule is None:
             await interaction.response.send_message(

@@ -108,6 +108,8 @@ class CancelCog(commands.Cog):
             )
             return
 
+        await interaction.response.defer(ephemeral=False)
+
         for promoted_slot in all_promoted_slots:
             if not isinstance(promoted_slot, dict):
                 continue
@@ -162,9 +164,7 @@ class CancelCog(commands.Cog):
             f"`{removed_times[-1]}`：`{display_name}`"
         )
 
-        await interaction.response.send_message(
-            public_text
-        )
+        await interaction.followup.send(public_text)
 
         await send_log_to_channel(
             self.bot,
@@ -184,6 +184,7 @@ class CancelCog(commands.Cog):
         time: str = "",
         all_day: bool = False
     ):
+
         if not has_role(interaction, RUNNER_ROLE_ID):
             await interaction.response.send_message(
                 "❌ 你沒有跑者砍班權限。",
@@ -238,6 +239,8 @@ class CancelCog(commands.Cog):
                 ephemeral=True
             )
             return
+
+        await interaction.response.defer(ephemeral=False)
 
         for cleared_slot in cleared_slots:
             user_id = cleared_slot.get("user_id")
@@ -309,9 +312,7 @@ class CancelCog(commands.Cog):
             f"`{removed_times[-1]}`：`{display_name}`"
         )
 
-        await interaction.response.send_message(
-            public_text
-        )
+        await interaction.followup.send(public_text)
 
         await send_log_to_channel(
             self.bot,
@@ -331,6 +332,7 @@ class CancelCog(commands.Cog):
         time: str = "",
         all_day: bool = False
     ):
+
         if not has_role(interaction, PUSHER_ROLE_ID):
             await interaction.response.send_message(
                 "❌ 你沒有 S6 砍班權限。",
@@ -383,6 +385,8 @@ class CancelCog(commands.Cog):
                 ephemeral=True
             )
             return
+
+        await interaction.response.defer(ephemeral=False)
 
         save_schedule(schedule)
 
@@ -437,9 +441,7 @@ class CancelCog(commands.Cog):
             f"`{removed_times[-1]}`：`{display_name}`"
         )
 
-        await interaction.response.send_message(
-            public_text
-        )
+        await interaction.followup.send(public_text)
 
         await send_log_to_channel(
             self.bot,
