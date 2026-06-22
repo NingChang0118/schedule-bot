@@ -1,4 +1,7 @@
-from config import S6_REMINDER_CHANNEL_ID
+from config import (
+    S6_REMINDER_CHANNEL_ID,
+    EMERGENCY_RECRUIT_CHANNEL_IDS
+)
 
 from core.storage import load_all, dict_to_schedule
 
@@ -283,10 +286,16 @@ async def send_emergency_recruit_for_row(
         f"缺 {get_missing_count(row)} 人"
     )
 
-    channel = bot.get_channel(schedule.channel_id)
+    channel_id = EMERGENCY_RECRUIT_CHANNEL_IDS.get(schedule.car)
+
+    if channel_id is None:
+        print(f"[緊急招募] 找不到對應頻道：{schedule.car}")
+        return False
+
+    channel = bot.get_channel(channel_id)
 
     if channel is None:
-        channel = await bot.fetch_channel(schedule.channel_id)
+        channel = await bot.fetch_channel(channel_id)
 
     message = build_emergency_recruit_message(
         schedule,

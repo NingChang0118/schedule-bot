@@ -2,6 +2,64 @@ from core.storage import load_all, dict_to_schedule
 from core.slot_utils import is_same_user
 from config import RECRUIT_CARS
 
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+TAIPEI_TZ = ZoneInfo("Asia/Taipei")
+
+
+def is_full_car(row):
+    slots = [
+        row.slot_1,
+        row.slot_2,
+        row.slot_3,
+        row.slot_4,
+        row.slot_5,
+    ]
+
+    return all(
+        isinstance(slot, dict)
+        for slot in slots
+    )
+
+
+def parse_time_to_hour_minute(time_text):
+    if len(time_text) == 2:
+        return int(time_text), 0
+
+    return int(time_text[:2]), int(time_text[2:])
+
+
+def is_finished_slot(schedule, row):
+    now = datetime.now(TAIPEI_TZ)
+
+    month, day = map(int, schedule.date.split("/"))
+
+    end_time = row.time.split("-")[1]
+
+    hour, minute = parse_time_to_hour_minute(end_time)
+
+    day_offset = 0
+
+    if hour == 24:
+        hour = 0
+        day_offset = 1
+
+    slot_end = datetime(
+        year=now.year,
+        month=month,
+        day=day,
+        hour=hour,
+        minute=minute,
+        tzinfo=TAIPEI_TZ
+    )
+
+    if day_offset:
+        slot_end += timedelta(days=1)
+
+    return now >= slot_end
+
+
 def get_user_hours(
     user_id,
     current_period=None
@@ -15,7 +73,7 @@ def get_user_hours(
 
     for schedule_data in all_data.values():
         schedule = dict_to_schedule(schedule_data)
-    
+
         if schedule.car not in RECRUIT_CARS:
             continue
 
@@ -24,6 +82,12 @@ def get_user_hours(
                 continue
 
         for row in schedule.rows:
+            if not is_full_car(row):
+                continue
+
+            if not is_finished_slot(schedule, row):
+                continue
+
             slots = [
                 row.slot_1,
                 row.slot_2,
@@ -68,6 +132,12 @@ def get_period_total_hours(current_period):
             continue
 
         for row in schedule.rows:
+            if not is_full_car(row):
+                continue
+
+            if not is_finished_slot(schedule, row):
+                continue
+
             slots = [
                 row.slot_1,
                 row.slot_2,
