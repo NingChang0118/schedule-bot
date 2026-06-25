@@ -27,11 +27,17 @@ def save_runners(data: dict):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def save_runner(user_id: int, name: str, power: str):
+def save_runner(
+    user_id: int,
+    name: str,
+    rate: float,
+    power: float
+):
     data = load_runners()
 
     data[str(user_id)] = {
         "name": name,
+        "rate": rate,
         "power": power
     }
 

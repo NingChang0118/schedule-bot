@@ -67,7 +67,7 @@ def get_s6_candidates(row):
         except Exception:
             s6_power = 0
 
-        if s6_power > highest_runner_power:
+        if s6_power > highest_runner_power + 1:
             candidates.append(
                 {
                     "user_id": user_id,

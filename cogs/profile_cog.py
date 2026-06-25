@@ -75,6 +75,7 @@ class ProfileCog(commands.Cog):
         self,
         interaction: discord.Interaction,
         名稱: str,
+        倍率: str,
         綜合: str
     ):
         await interaction.response.defer(
@@ -84,6 +85,7 @@ class ProfileCog(commands.Cog):
         save_runner(
             interaction.user.id,
             名稱,
+            倍率,
             綜合
         )
 
@@ -93,7 +95,7 @@ class ProfileCog(commands.Cog):
                 interaction.user.id,
                 "runner",
                 名稱,
-                None,
+                倍率,
                 綜合
             )
         )
@@ -101,6 +103,7 @@ class ProfileCog(commands.Cog):
         await interaction.followup.send(
             f"✅ 已登記跑者資料\n"
             f"名稱：{名稱}\n"
+            f"倍率：{倍率}\n"
             f"綜合：{綜合}\n"
             f"已同步班表：{updated_schedule_count} 張\n"
             f"已更新報班資料：{updated_slot_count} 筆",

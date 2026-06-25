@@ -203,7 +203,7 @@ class BookingCog(commands.Cog):
         if runner_data is None:
             await interaction.response.send_message(
                 "❌ 你還沒有登記跑者資料。\n"
-                "請先使用 `/登記跑者資料` 登記名稱與綜合。",
+                "請先使用 `/登記跑者資料` 登記名稱、倍率與綜合。",
                 ephemeral=True
             )
             return
@@ -214,6 +214,7 @@ class BookingCog(commands.Cog):
             user_id=interaction.user.id,
             name=runner_name,
             role_type="runner",
+            rate=runner_data.get("rate", 0),
             power=runner_data["power"]
         )
 
