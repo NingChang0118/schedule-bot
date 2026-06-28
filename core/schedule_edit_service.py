@@ -74,7 +74,7 @@ def fill_pusher_schedule(schedule, user_id, slot_data, time: str):
     }
 
 
-def fill_runner_schedule(schedule, user_id, slot_data, time: str, car_type: str):
+def fill_runner_schedule(schedule, user_id, slot_data, time: str, car_type: str | None = None):
     times = expand_time_range(time)
     target_rows = []
 
@@ -100,7 +100,7 @@ def fill_runner_schedule(schedule, user_id, slot_data, time: str, car_type: str)
                 "joined_times": []
             }
         
-        if has_runner_in_row(target_row):
+        if car_type:
             if target_row.car_type and target_row.car_type != car_type:
                 return {
                     "ok": False,
@@ -115,7 +115,7 @@ def fill_runner_schedule(schedule, user_id, slot_data, time: str, car_type: str)
     for target_time, target_row in target_rows:
         target_row.backup.append(slot_data)
 
-        if not target_row.car_type:
+        if car_type and not target_row.car_type:
             target_row.car_type = car_type
 
         rebalance_row(target_row)

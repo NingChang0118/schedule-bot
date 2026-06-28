@@ -37,3 +37,12 @@ Earlier development history is documented in the project's Discord update log.
 登記推車資料成功訊息改為公開
 登記跑者資料成功訊息改為公開
 登記 S6 資料成功訊息改為公開
+
+## [v1.5.12] - 2026-06-28
+
+### Changed
+
+* 跑者報班車種改為選填
+* 第一位填寫車種的跑者將鎖定該時段車種
+* 未填寫車種不會鎖定車種
+* 已鎖定車種後，後續填寫車種需與已鎖定車種一致

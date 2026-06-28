@@ -184,7 +184,7 @@ class BookingCog(commands.Cog):
         car: str,
         date: str,
         time: str,
-        car_type: str
+        car_type: str | None = None
     ):
         if not has_role(interaction, RUNNER_ROLE_ID):
             await interaction.response.send_message(
