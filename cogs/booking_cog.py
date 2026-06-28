@@ -257,6 +257,13 @@ class BookingCog(commands.Cog):
                     ephemeral=True
                 )
                 return
+            
+            if result["error"] == "car_type_locked":
+                await interaction.response.send_message(
+                    f"❌ `{result['target_time']}` 車種已鎖定為 `{result['locked_car_type']}`，請選擇相同車種。",
+                    ephemeral=True
+                )
+                return
 
         joined_times = result["joined_times"]
 

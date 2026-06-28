@@ -99,13 +99,24 @@ def fill_runner_schedule(schedule, user_id, slot_data, time: str, car_type: str)
                 "target_time": target_time,
                 "joined_times": []
             }
+        
+        if has_runner_in_row(target_row):
+            if target_row.car_type and target_row.car_type != car_type:
+                return {
+                    "ok": False,
+                    "error": "car_type_locked",
+                    "target_time": target_time,
+                    "locked_car_type": target_row.car_type,
+                    "joined_times": []
+                }
 
     joined_times = []
 
     for target_time, target_row in target_rows:
         target_row.backup.append(slot_data)
 
-        target_row.car_type = car_type
+        if not target_row.car_type:
+            target_row.car_type = car_type
 
         rebalance_row(target_row)
 

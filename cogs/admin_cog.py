@@ -46,6 +46,119 @@ from core.manual_move_service import (
     move_formal_member
 )
 
+
+class DeleteScheduleConfirmView(discord.ui.View):
+    def __init__(self, cog, requester_id, period, car, date):
+        super().__init__(timeout=60)
+        self.cog = cog
+        self.requester_id = requester_id
+        self.period = period
+        self.car = car
+        self.date = date
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.requester_id:
+            await interaction.response.send_message(
+                "❌ 只有原本執行指令的人可以操作這個確認按鈕。",
+                ephemeral=True
+            )
+            return False
+
+        return True
+
+    @discord.ui.button(
+        label="確認刪除",
+        style=discord.ButtonStyle.danger
+    )
+    async def confirm_delete(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
+    ):
+        schedule = get_schedule(
+            self.period,
+            self.car,
+            self.date
+        )
+
+        if schedule is None:
+            await interaction.response.edit_message(
+                content=f"❌ 找不到 `{self.car} {self.date}` 的班表，可能已經被刪除了。",
+                view=None
+            )
+            return
+
+        try:
+            channel = self.cog.bot.get_channel(
+                schedule.channel_id
+            )
+
+            if channel is None:
+                channel = await self.cog.bot.fetch_channel(
+                    schedule.channel_id
+                )
+
+            message = await channel.fetch_message(
+                schedule.message_id
+            )
+
+            await message.delete()
+
+        except Exception:
+            pass
+
+
+        success = delete_schedule(
+            self.period,
+            self.car,
+            self.date
+        )
+
+        if not success:
+            await interaction.response.edit_message(
+                content=f"❌ 找不到 `{self.car} {self.date}` 的班表，可能已經被刪除了。",
+                view=None
+            )
+            return
+
+        await interaction.response.edit_message(
+            content=f"🗑️ 已刪除 `{self.car} {self.date}` 的排班。",
+            view=None
+        )
+
+        for item in self.children:
+            item.disabled = True
+
+        self.stop()
+
+    @discord.ui.button(
+        label="取消",
+        style=discord.ButtonStyle.secondary
+    )
+    async def cancel_delete(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(
+            content=f"✅ 已取消刪除 `{self.car} {self.date}`。",
+            view=None
+        )
+
+        self.stop()
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+
+        try:
+            await self.message.edit(
+                view=self
+            )
+        except Exception:
+            pass
+
+
 class AdminCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -341,19 +454,31 @@ class AdminCog(commands.Cog):
         car = normalize_car(car)
         date = normalize_date(date)
 
-        success = delete_schedule(period, car, date)
+        schedule = get_schedule(period, car, date)
 
-        if not success:
+        if schedule is None:
             await interaction.followup.send(
                 f"❌ 找不到 `{car} {date}` 的班表。",
                 ephemeral=True
             )
             return
 
+        view = DeleteScheduleConfirmView(
+            self,
+            interaction.user.id,
+            period,
+            car,
+            date
+        )
+
         await interaction.followup.send(
-            f"🗑️ 已刪除 `{car} {date}` 的排班。",
+            f"⚠️ 你確定要刪除 `{car} {date}` 的班表嗎？\n"
+            "此操作會刪除班表資料，確認後無法復原。",
+            view=view,
             ephemeral=True
         )
+
+        view.message = await interaction.original_response()
 
     @app_commands.command(
         name="強制刪除班表",

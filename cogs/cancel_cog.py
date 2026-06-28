@@ -6,7 +6,8 @@ from config import (
     CURRENT_PERIOD,
     PUSHER_ROLE_ID,
     RUNNER_ROLE_ID,
-    SCHEDULE_UPDATE_CHANNEL_ID
+    SCHEDULE_UPDATE_CHANNEL_ID,
+    RUNNER_CANCEL_NOTICE_CHANNEL_ID
 )
 
 from core.schedule_service import get_row_by_time
@@ -242,23 +243,26 @@ class CancelCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=False)
 
-        for cleared_slot in cleared_slots:
-            user_id = cleared_slot.get("user_id")
+        
+        if cleared_slots:
+            notice_text = (
+                "⚠️ **跑者砍班通知**\n\n"
+                f"車輛：{car}\n"
+                f"日期：{date}\n\n"
+            )
 
-            try:
-                user = await self.bot.fetch_user(int(user_id))
+            for slot in cleared_slots:
+                role = "S6" if slot.get("type") == "s6" else "推車手"
+                notice_text += (
+                f"• {slot.get('display')} ({role})\n"
+                f"  時間：{slot.get('time')}\n"
+            )
 
-                await user.send(
-                    f"⚠️ 跑者已砍班，該時段車輛已取消。\n\n"
-                    f"車輛：{car}\n"
-                    f"日期：{date}\n"
-                    f"時間：{cleared_slot.get('time')}\n"
-                    f"名稱：{cleared_slot.get('display')}\n\n"
-                    f"你的推車 / S6 報班已一併清空。"
-                )
-
-            except Exception as e:
-                print("跑者砍班通知失敗：", user_id, e)
+            await send_log_to_channel(
+                self.bot,
+                RUNNER_CANCEL_NOTICE_CHANNEL_ID,
+                notice_text
+             )
 
         save_schedule(schedule)
 

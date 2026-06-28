@@ -48,3 +48,20 @@ def get_runner(user_id: int) -> dict | None:
     data = load_runners()
 
     return data.get(str(user_id))
+
+def update_runner_rate(
+    user_id: int,
+    rate: float
+):
+    data = load_runners()
+
+    user = data.get(str(user_id))
+
+    if user is None:
+        return False
+
+    user["rate"] = rate
+
+    save_runners(data)
+
+    return True
