@@ -50,6 +50,42 @@ def get_pusher(user_id: int) -> dict | None:
     return data.get(str(user_id))
 
 
+def update_pusher_rate(
+    user_id: int,
+    rate: str
+):
+    data = load_pushers()
+
+    user = data.get(str(user_id))
+
+    if user is None:
+        return False
+
+    user["rate"] = rate
+
+    save_pushers(data)
+
+    return True
+
+
+def update_pusher_power(
+    user_id: int,
+    power: str
+):
+    data = load_pushers()
+
+    user = data.get(str(user_id))
+
+    if user is None:
+        return False
+
+    user["power"] = power
+
+    save_pushers(data)
+
+    return True
+
+
 def format_pusher_name(user_id: int, default_name: str) -> str:
     pusher = get_pusher(user_id)
 
