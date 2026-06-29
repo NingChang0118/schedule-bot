@@ -3,7 +3,6 @@ from discord import app_commands
 from discord.ext import commands
 
 from config import (
-    CURRENT_PERIOD,
     PUSHER_ROLE_ID,
     RUNNER_ROLE_ID,
     SCHEDULE_UPDATE_CHANNEL_ID
@@ -11,7 +10,6 @@ from config import (
 
 from core.storage import (
     save_schedule,
-    get_schedule
 )
 
 from core.pusher_storage import (
@@ -34,8 +32,7 @@ from core.schedule_utils import (
 
 from core.schedule_edit_service import (
     fill_pusher_schedule,
-    fill_runner_schedule,
-    fill_s6_schedule
+    fill_runner_schedule
 )
 
 from core.discord_message_service import (
@@ -64,7 +61,8 @@ class BookingCog(commands.Cog):
         interaction: discord.Interaction,
         car: str,
         date: str,
-        time: str
+        time: str,
+        double_rate: float | None = None
     ):
         if not has_role(interaction, PUSHER_ROLE_ID):
             await interaction.response.send_message(
@@ -94,6 +92,18 @@ class BookingCog(commands.Cog):
             power=pusher_data["power"]
         )
 
+        double_slot_data = None
+
+        if double_rate is not None:
+            double_slot_data = make_slot(
+                user_id=interaction.user.id,
+                name=pusher_data["name"],
+                role_type="pusher",
+                rate=double_rate,
+                power=pusher_data["power"],
+                is_double=True
+            )
+
         display_name = get_slot_display(slot_data)
 
         schedule, _ = await ensure_schedule_for_booking(
@@ -114,7 +124,8 @@ class BookingCog(commands.Cog):
             schedule,
             interaction.user.id,
             slot_data,
-            time
+            time,
+            double_slot_data
         )
 
         if not result["ok"]:
@@ -291,118 +302,6 @@ class BookingCog(commands.Cog):
         else:
             update_text += (
                 f"跑者報班：`{time}`：`{display_name}`"
-            )
-
-        await interaction.followup.send(
-            public_text
-        )
-
-        await send_log_to_channel(
-            self.bot,
-            SCHEDULE_UPDATE_CHANNEL_ID,
-            update_text
-        )
-
-    @app_commands.command(
-        name="s6報班",
-        description="填入指定時間的S6推車手"
-    )
-    async def fill_s6(
-        self,
-        interaction: discord.Interaction,
-        car: str,
-        date: str,
-        time: str
-    ):
-        if not has_role(interaction, PUSHER_ROLE_ID):
-            await interaction.response.send_message(
-                "❌ 你沒有S6報班權限。",
-                ephemeral=True
-            )
-            return
-
-        period = CURRENT_PERIOD
-        car = normalize_car(car)
-        date = normalize_date(date)
-
-        pusher_data = get_pusher(interaction.user.id)
-
-        if pusher_data is None:
-            await interaction.response.send_message(
-                "❌ 你還沒有登記推車資料。\n"
-                "請先使用 `/登記推車資料` 登記名稱與倍率。",
-                ephemeral=True
-            )
-            return
-
-        slot_data = make_slot(
-            user_id=interaction.user.id,
-            name=pusher_data["name"],
-            role_type="s6",
-            rate=pusher_data["rate"],
-            power=pusher_data["power"]
-        )
-
-        display_name = get_slot_display(slot_data)
-
-        schedule = get_schedule(period, car, date)
-
-        if schedule is None:
-            await interaction.response.send_message(
-                f"❌ 找不到 `{car} {date}` 的排班。",
-                ephemeral=True
-            )
-            return
-
-        result = fill_s6_schedule(
-            schedule,
-            interaction.user.id,
-            slot_data,
-            time
-        )
-
-        if not result["ok"]:
-            if result["error"] == "time_not_found":
-                await interaction.response.send_message(
-                    f"❌ 找不到時間 `{result['target_time']}`。\n"
-                    f"請使用格式例如：`21-22`、`21-24` 或 `2100-2200`",
-                    ephemeral=True
-                )
-                return
-
-            if result["error"] == "s6_already_exists":
-                await interaction.response.send_message(
-                    f"❌ `{result['target_time']}` 已經有人報S6了。",
-                    ephemeral=True
-                )
-                return
-
-        joined_times = result["joined_times"]
-
-        await interaction.response.defer(ephemeral=False)
-
-        save_schedule(schedule)
-
-        await update_schedule_message(
-            self.bot,
-            schedule
-        )
-
-        public_text = (
-            f"S6報班成功 {car} {date} "
-            f"{time}"
-        )
-
-        update_text = f"✅ 班表已更新 `{car} {date}`\n"
-
-        if joined_times:
-            update_text += (
-                f"S6報班：`{joined_times[0]}` ~ "
-                f"`{joined_times[-1]}`：`{display_name}`"
-            )
-        else:
-            update_text += (
-                f"S6報班：`{time}`：`{display_name}`"
             )
 
         await interaction.followup.send(

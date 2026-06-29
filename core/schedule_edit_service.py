@@ -12,7 +12,7 @@ from core.rebalance_service import (
 )
 
 
-def fill_pusher_schedule(schedule, user_id, slot_data, time: str):
+def fill_pusher_schedule(schedule, user_id, slot_data, time: str, double_slot_data=None):
     times = expand_time_range(time)
     target_rows = []
 
@@ -31,7 +31,7 @@ def fill_pusher_schedule(schedule, user_id, slot_data, time: str):
         target_rows.append((target_time, target_row))
 
     for target_time, target_row in target_rows:
-        if already_in_row(target_row, user_id, "pusher"):
+        if already_in_row(target_row, user_id, "pusher") and double_slot_data is None:
             return {
                 "ok": False,
                 "error": "already_joined",
@@ -44,7 +44,11 @@ def fill_pusher_schedule(schedule, user_id, slot_data, time: str):
     backup_times = []
 
     for target_time, target_row in target_rows:
-        target_row.backup.append(slot_data)
+        if not already_in_row(target_row, user_id, "pusher"):
+            target_row.backup.append(slot_data)
+
+        if double_slot_data is not None:
+            target_row.backup.append(double_slot_data)
 
         rebalance_row(target_row)
 

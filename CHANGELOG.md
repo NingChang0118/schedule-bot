@@ -46,3 +46,16 @@ Earlier development history is documented in the project's Discord update log.
 * 第一位填寫車種的跑者將鎖定該時段車種
 * 未填寫車種不會鎖定車種
 * 已鎖定車種後，後續填寫車種需與已鎖定車種一致
+
+##　[v1.5.13] - 2026-06-30
+
+### Added
+
+新增推車手雙開報班功能
+推車報班新增雙開倍率選填欄位
+支援已報班後補報雙開
+
+### Changed
+
+推車班重整機制支援同一推車手雙開
+推車砍班會一次取消同時段所有雙開報班

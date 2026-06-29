@@ -154,9 +154,7 @@ def rebalance_row(row):
         if is_pusher_slot(slot)
     ]
 
-    pushers = dedupe_slots(
-        active_pushers + backup_pushers
-    )
+    pushers = active_pushers + backup_pushers
 
     pushers = [
         slot
