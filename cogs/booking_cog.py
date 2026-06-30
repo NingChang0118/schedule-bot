@@ -71,13 +71,15 @@ class BookingCog(commands.Cog):
             )
             return
 
+        await interaction.response.defer(ephemeral=False)
+
         car = normalize_car(car)
         date = normalize_date(date)
 
         pusher_data = get_pusher(interaction.user.id)
 
         if pusher_data is None:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "❌ 你還沒有登記推車資料。\n"
                 "請先使用 `/登記推車資料` 登記名稱與倍率。",
                 ephemeral=True
@@ -114,7 +116,7 @@ class BookingCog(commands.Cog):
         )
 
         if schedule is None:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ 找不到 `{car} {date}` 的排班。",
                 ephemeral=True
             )
@@ -130,7 +132,7 @@ class BookingCog(commands.Cog):
 
         if not result["ok"]:
             if result["error"] == "time_not_found":
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"❌ 找不到時間 `{result['target_time']}`。\n"
                     f"請使用格式例如：`21-22`、`21-24` 或 `2100-2200`",
                     ephemeral=True
@@ -138,7 +140,7 @@ class BookingCog(commands.Cog):
                 return
 
             if result["error"] == "already_joined":
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"❌ `{result['target_time']}` 你已經報過班了。",
                     ephemeral=True
                 )
@@ -146,8 +148,6 @@ class BookingCog(commands.Cog):
 
         joined_times = result["joined_times"]
         backup_times = result["backup_times"]
-
-        await interaction.response.defer(ephemeral=False)
 
         save_schedule(schedule)
 
@@ -204,6 +204,8 @@ class BookingCog(commands.Cog):
             )
             return
 
+        await interaction.response.defer(ephemeral=False)
+
         car = normalize_car(car)
         date = normalize_date(date)
 
@@ -212,18 +214,16 @@ class BookingCog(commands.Cog):
         )
 
         if runner_data is None:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "❌ 你還沒有登記跑者資料。\n"
                 "請先使用 `/登記跑者資料` 登記名稱、倍率與綜合。",
                 ephemeral=True
             )
             return
-
-        runner_name = runner_data["name"] + "R"
-
+        
         slot_data = make_slot(
             user_id=interaction.user.id,
-            name=runner_name,
+            name=runner_data["name"],
             role_type="runner",
             rate=runner_data.get("rate", 0),
             power=runner_data["power"]
@@ -239,7 +239,7 @@ class BookingCog(commands.Cog):
         )
 
         if schedule is None:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ 找不到 `{car} {date}` 的排班。",
                 ephemeral=True
             )
@@ -255,7 +255,7 @@ class BookingCog(commands.Cog):
 
         if not result["ok"]:
             if result["error"] == "time_not_found":
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"❌ 找不到時間 `{result['target_time']}`。\n"
                     f"請使用格式例如：`21-22`、`21-24` 或 `2100-2200`",
                     ephemeral=True
@@ -263,22 +263,20 @@ class BookingCog(commands.Cog):
                 return
 
             if result["error"] == "already_joined":
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"❌ `{result['target_time']}` 你已經報過跑者了。",
                     ephemeral=True
                 )
                 return
             
             if result["error"] == "car_type_locked":
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"❌ `{result['target_time']}` 車種已鎖定為 `{result['locked_car_type']}`，請選擇相同車種。",
                     ephemeral=True
                 )
                 return
 
         joined_times = result["joined_times"]
-
-        await interaction.response.defer(ephemeral=False)
 
         save_schedule(schedule)
 

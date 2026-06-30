@@ -9,7 +9,9 @@ from core.slot_utils import get_slot_display
 IMAGE_DIR = Path("data/images")
 
 
-def safe_filename(text: str) -> str:
+def safe_filename(text) -> str:
+    text = str(text)
+
     return (
         text.replace("/", "-")
             .replace("\\", "-")

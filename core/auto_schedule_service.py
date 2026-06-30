@@ -5,10 +5,13 @@ from core.storage import get_schedule, save_schedule
 from core.renderer import render_schedule
 from core.discord_message_service import send_log_to_channel
 from config import (
-    CURRENT_PERIOD,
     RECRUIT_CARS,
     SCHEDULE_UPDATE_CHANNEL_ID,
     FORMAL_SCHEDULE_CHANNEL_ID
+)
+
+from core.settings_storage import (
+    get_current_period
 )
 
 
@@ -22,8 +25,10 @@ async def ensure_schedule_for_booking(
     car: str,
     date: str
 ):
+    current_period = get_current_period()
+
     schedule = get_schedule(
-        CURRENT_PERIOD,
+        current_period,
         car,
         date
     )
@@ -35,7 +40,7 @@ async def ensure_schedule_for_booking(
         return None, False
 
     schedule = create_empty_schedule(
-        CURRENT_PERIOD,
+        current_period,
         car,
         date
     )

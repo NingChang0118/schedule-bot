@@ -4,8 +4,11 @@ from discord.ext import commands
 
 from config import (
     SCHEDULE_ADMIN_ROLE_ID,
-    CURRENT_PERIOD,
     RECRUIT_ROLE_ID
+)
+
+from core.settings_storage import (
+    get_current_period
 )
 
 from core.storage import (
@@ -60,7 +63,7 @@ class RecruitCog(commands.Cog):
             )
             return
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
 

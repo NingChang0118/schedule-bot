@@ -3,8 +3,11 @@ from discord import app_commands
 from discord.ext import commands
 
 from config import (
-    SCHEDULE_ADMIN_ROLE_ID,
-    CURRENT_PERIOD
+    SCHEDULE_ADMIN_ROLE_ID
+)
+
+from core.settings_storage import (
+    get_current_period
 )
 
 from core.storage import (
@@ -73,9 +76,11 @@ class QueryCog(commands.Cog):
         self,
         interaction: discord.Interaction
     ):
+        current_period = get_current_period()
+
         records = get_user_schedule_records(
             interaction.user.id,
-            CURRENT_PERIOD
+            current_period
         )
 
         text = build_my_schedule_text(records)
@@ -100,7 +105,7 @@ class QueryCog(commands.Cog):
             ephemeral=True
         )
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
 
@@ -159,13 +164,15 @@ class QueryCog(commands.Cog):
         self,
         interaction: discord.Interaction
     ):
+        current_period = get_current_period()
+
         stats = get_user_hours(
             interaction.user.id,
-            CURRENT_PERIOD
+            current_period
         )
 
         text = build_current_hours_text(
-            CURRENT_PERIOD,
+            current_period,
             stats
         )
 
@@ -210,8 +217,10 @@ class QueryCog(commands.Cog):
             )
             return
 
+        current_period = get_current_period()
+
         text = build_period_total_hours_text(
-            CURRENT_PERIOD
+            current_period
         )
 
         await interaction.response.send_message(
@@ -324,7 +333,7 @@ class QueryCog(commands.Cog):
         car: str,
         date: str
     ):
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
 

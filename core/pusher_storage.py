@@ -50,6 +50,21 @@ def get_pusher(user_id: int) -> dict | None:
     return data.get(str(user_id))
 
 
+def get_pusher_by_name(name: str) -> dict | None:
+    data = load_pushers()
+
+    for user_id, pusher in data.items():
+        if pusher.get("name") == name:
+            return {
+                "user_id": user_id,
+                "name": pusher.get("name", ""),
+                "rate": pusher.get("rate", ""),
+                "power": pusher.get("power", "")
+            }
+
+    return None
+
+
 def update_pusher_rate(
     user_id: int,
     rate: str

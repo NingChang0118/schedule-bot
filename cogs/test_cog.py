@@ -31,8 +31,11 @@ from core.s6_pusher_storage import (
 )
 
 from config import (
-    CURRENT_PERIOD,
     SCHEDULE_ADMIN_ROLE_ID
+)
+
+from core.settings_storage import (
+    get_current_period
 )
 
 from core.discord_message_service import (
@@ -91,7 +94,7 @@ class TestCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
         target_time = expand_time_range(time)[0]
@@ -214,7 +217,7 @@ class TestCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
         target_time = expand_time_range(time)[0]
@@ -356,7 +359,7 @@ class TestCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
         target_time = expand_time_range(time)[0]

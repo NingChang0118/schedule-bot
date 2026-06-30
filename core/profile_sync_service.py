@@ -1,4 +1,6 @@
-from config import CURRENT_PERIOD
+from core.settings_storage import (
+    get_current_period
+)
 from core.slot_utils import get_all_slots
 from core.storage import (
     load_all,
@@ -95,15 +97,17 @@ async def sync_profile_to_all_current_schedules(
 ) -> tuple[int, int]:
     all_data = load_all()
 
+    current_period = get_current_period()
+
     updated_schedule_count = 0
     updated_slot_count = 0
 
-    for schedule_key, schedule_data in all_data.items():
+    for schedule_data in all_data.values():
         schedule = dict_to_schedule(
             schedule_data
         )
 
-        if schedule.period != CURRENT_PERIOD:
+        if schedule.period != current_period:
             continue
 
         updated_count = sync_profile_to_schedule(

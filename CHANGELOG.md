@@ -59,3 +59,29 @@ Earlier development history is documented in the project's Discord update log.
 
 推車班重整機制支援同一推車手雙開
 推車砍班會一次取消同時段所有雙開報班
+
+## [v1.5.14] - 2026-06-30
+
+### Added
+
+* 新增活動設定系統 (`settings.json`)
+* 新增 `/切換期數` 管理指令
+* 新增 S6 文字回報系統
+* 新增 S6 回報資料儲存
+* 新增個人時數 S6 時數顯示
+
+### Changed
+
+* 全系統改為使用動態活動期數
+* S6 時數改為獨立統計
+* 推車時數自動包含 S6 額外時數
+* 重構活動期數讀取流程
+
+### Removed
+
+* 移除 `/s6報班`
+* 移除 `/s6砍班`
+
+### Fixed
+
+* 修正活動期數型別導致的時數統計問題

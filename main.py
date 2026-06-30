@@ -14,11 +14,13 @@ EXTENSIONS = [
     "cogs.booking_cog",
     "cogs.cancel_cog",
     "cogs.query_cog",
-    "cogs.recruit_cog"
+    "cogs.recruit_cog",
+    "cogs.s6_report_cog"
 ]
 
 
 intents = discord.Intents.default()
+intents.message_content = True
 
 bot = commands.Bot(
     command_prefix="!",

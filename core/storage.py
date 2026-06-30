@@ -72,7 +72,7 @@ def dict_to_schedule(data: dict) -> Schedule:
     ]
 
     return Schedule(
-        period=data["period"],
+        period=int(data["period"]),
         car=data["car"],
         date=data["date"],
         channel_id=data.get("channel_id"),

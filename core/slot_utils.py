@@ -1,6 +1,8 @@
 def make_slot(user_id, name, role_type, rate=None, power=None, is_double=False):
     if role_type in ["pusher", "s6"]:
         display = f"{name}({rate})"
+    elif role_type == "runner":
+        display = f"{name}R"
     else:
         display = name
 

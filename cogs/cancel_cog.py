@@ -3,11 +3,14 @@ from discord import app_commands
 from discord.ext import commands
 
 from config import (
-    CURRENT_PERIOD,
     PUSHER_ROLE_ID,
     RUNNER_ROLE_ID,
     SCHEDULE_UPDATE_CHANNEL_ID,
     RUNNER_CANCEL_NOTICE_CHANNEL_ID
+)
+
+from core.settings_storage import (
+    get_current_period
 )
 
 from core.schedule_service import get_row_by_time
@@ -62,7 +65,7 @@ class CancelCog(commands.Cog):
             )
             return
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
 
@@ -193,7 +196,7 @@ class CancelCog(commands.Cog):
             )
             return
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
 

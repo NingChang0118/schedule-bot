@@ -1,11 +1,21 @@
 from core.storage import load_all, dict_to_schedule
 from core.slot_utils import is_same_user
+from core.s6_report_storage import get_s6_reports
 from config import RECRUIT_CARS
 
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 TAIPEI_TZ = ZoneInfo("Asia/Taipei")
+
+def normalize_stats_name(name):
+    if not name:
+        return ""
+
+    if name.endswith("R"):
+        return name[:-1]
+
+    return name
 
 
 def is_full_car(row):
@@ -109,9 +119,19 @@ def get_user_hours(
                 elif slot.get("type") == "runner":
                     runner_hours += 1
 
+    s6_reports = get_s6_reports(
+        period=current_period,
+        user_id=user_id
+    )
+
+    s6_hours = len(s6_reports)
+
+    pusher_hours += s6_hours
+
     return {
         "pusher_hours": pusher_hours,
         "runner_hours": runner_hours,
+        "s6_hours": s6_hours,
         "total_hours": pusher_hours - runner_hours
     }
 
@@ -150,7 +170,9 @@ def get_period_total_hours(current_period):
                 if not isinstance(slot, dict):
                     continue
 
-                name = slot.get("name")
+                name = normalize_stats_name(
+                    slot.get("name")
+                )
                 role_type = slot.get("type")
 
                 if not name:
@@ -161,6 +183,20 @@ def get_period_total_hours(current_period):
 
                 elif role_type == "pusher":
                     pusher_hours[name] = pusher_hours.get(name, 0) + 1
+
+    s6_reports = get_s6_reports(
+        period=current_period
+    )
+
+    for report in s6_reports:
+        name = normalize_stats_name(
+            report.get("name")
+        )
+
+        if not name:
+            continue
+
+        pusher_hours[name] = pusher_hours.get(name, 0) + 1
 
     return {
         "runner_hours": runner_hours,
@@ -174,12 +210,14 @@ def build_current_hours_text(
 ):
     pusher_hours = stats["pusher_hours"]
     runner_hours = stats["runner_hours"]
+    s6_hours = stats.get("s6_hours", 0)
     total_hours = stats["total_hours"]
 
     return (
         f"📊 **{current_period}期時數統計**\n\n"
         f"推車時數：{pusher_hours}\n"
         f"跑者時數：{runner_hours}\n"
+        f"S6時數：{s6_hours}\n"
         f"結算時數：{total_hours}"
     )
 
@@ -187,12 +225,14 @@ def build_current_hours_text(
 def build_history_hours_text(stats):
     pusher_hours = stats["pusher_hours"]
     runner_hours = stats["runner_hours"]
+    s6_hours = stats.get("s6_hours", 0)
     total_hours = stats["total_hours"]
 
     return (
         f"📊 **歷史時數統計**\n\n"
         f"推車時數：{pusher_hours}\n"
         f"跑者時數：{runner_hours}\n"
+        f"S6時數：{s6_hours}\n"
         f"結算時數：{total_hours}"
     )
 

@@ -1,14 +1,17 @@
 import discord
 from discord import app_commands
-from discord.ext import commands, tasks
+from discord.ext import commands
 
 from core.models import create_empty_schedule
 from core.storage import save_schedule, get_schedule, delete_schedule, load_all, dict_to_schedule, save_all
 from core.renderer import render_schedule
 from config import (
-    SCHEDULE_ADMIN_ROLE_ID,
-    CURRENT_PERIOD,
-    S6_REMINDER_CHANNEL_ID
+    SCHEDULE_ADMIN_ROLE_ID
+)
+
+from core.settings_storage import (
+    get_current_period,
+    set_current_period
 )
 
 from core.schedule_utils import (
@@ -165,20 +168,37 @@ class AdminCog(commands.Cog):
         self.force_s6_reminded = set()
 
     async def update_schedule_message(self, schedule):
+        print("1")
+
         image_path = render_schedule(schedule)
+        print("2")
+        print("channel_id:", schedule.channel_id)
+        print("message_id:", schedule.message_id)
 
         channel = self.bot.get_channel(schedule.channel_id)
 
         if channel is None:
             channel = await self.bot.fetch_channel(schedule.channel_id)
 
-        message = await channel.fetch_message(schedule.message_id)
+        print("3")
 
-        await message.edit(
-            attachments=[
-                discord.File(str(image_path), filename="schedule.png")
-            ]
-        )
+        message = await channel.fetch_message(schedule.message_id)
+        print("4")
+
+        try:
+            await message.edit(
+                attachments=[
+                    discord.File(
+                        str(image_path),
+                        filename="schedule.png"
+                    )
+                ]
+            )
+            print("5")
+
+        except Exception as e:
+            print("ERROR:", repr(e))
+            raise
 
     def is_schedule_admin(
         self,
@@ -267,7 +287,7 @@ class AdminCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
 
@@ -306,7 +326,7 @@ class AdminCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
 
@@ -390,7 +410,6 @@ class AdminCog(commands.Cog):
         car: str,
         date: str
     ):
-        
         if not self.is_schedule_admin(interaction):
             await interaction.response.send_message(
                 "❌ 你沒有建立班表的權限。",
@@ -400,7 +419,7 @@ class AdminCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
 
@@ -450,7 +469,7 @@ class AdminCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
 
@@ -711,7 +730,7 @@ class AdminCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
 
@@ -782,7 +801,7 @@ class AdminCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
 
@@ -873,7 +892,7 @@ class AdminCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        period = CURRENT_PERIOD
+        period = get_current_period()
         car = normalize_car(car)
         date = normalize_date(date)
 
@@ -959,8 +978,10 @@ class AdminCog(commands.Cog):
             ephemeral=True
         )
 
+        current_period = get_current_period()
+
         success, message = move_formal_member(
-            period=CURRENT_PERIOD,
+            period=current_period,
             from_car=from_car,
             date=date,
             from_time=from_time,
@@ -978,13 +999,13 @@ class AdminCog(commands.Cog):
             return
 
         from_schedule = get_schedule(
-            CURRENT_PERIOD,
+            current_period,
             normalize_car(from_car),
             normalize_date(date)
         )
 
         to_schedule = get_schedule(
-            CURRENT_PERIOD,
+            current_period,
             normalize_car(to_car),
             normalize_date(date)
         )
@@ -1007,6 +1028,42 @@ class AdminCog(commands.Cog):
 
         await interaction.followup.send(
             message,
+            ephemeral=True
+        )
+
+    @app_commands.command(
+        name="切換期數",
+        description="切換目前活動期數"
+    )
+    async def change_period(
+        self,
+        interaction: discord.Interaction,
+        period: int
+    ):
+        if not self.is_schedule_admin(interaction):
+            await interaction.response.send_message(
+                "❌ 你沒有使用此指令的權限。",
+                ephemeral=True
+            )
+            return
+
+        if period <= 0:
+            await interaction.response.send_message(
+                "❌ 期數必須大於 0。",
+                ephemeral=True
+            )
+            return
+
+        old_period, new_period = set_current_period(
+            period
+        )
+
+        await interaction.response.send_message(
+            (
+                "✅ 已切換目前期數\n\n"
+                f"舊期數：`{old_period}`\n"
+                f"新期數：`{new_period}`"
+            ),
             ephemeral=True
         )
 

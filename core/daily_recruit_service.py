@@ -1,7 +1,10 @@
 from config import (
-    CURRENT_PERIOD,
     RECRUIT_ROLE_ID,
     RECRUIT_CARS
+)
+
+from core.settings_storage import (
+    get_current_period
 )
 
 from core.storage import get_schedule
@@ -40,8 +43,10 @@ def build_today_daily_recruit_message(
     car_sections = []
 
     for car in RECRUIT_CARS:
+        current_period = get_current_period()
+
         schedule = get_schedule(
-            CURRENT_PERIOD,
+            current_period,
             car,
             date
         )
