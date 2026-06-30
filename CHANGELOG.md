@@ -85,3 +85,15 @@ Earlier development history is documented in the project's Discord update log.
 ### Fixed
 
 * 修正活動期數型別導致的時數統計問題
+
+## [v1.5.15] - 2026-06-30
+
+### Fixed
+
+* 修正動態活動期數導致班表圖片檔名產生失敗的問題
+* 修正班表建立後部分資料缺少 `channel_id` 與 `message_id` 的問題
+* 修正班表重建時因班表訊息資料異常導致無法更新的問題
+* 修正班表更新流程中圖片渲染異常的問題
+* 修正跑者報班 Interaction 回應超時問題
+* 修正推車報班 Interaction 回應超時問題
+* 修正報班流程中 `defer` 時機過晚導致 Discord 顯示應用程式沒有回應的問題
