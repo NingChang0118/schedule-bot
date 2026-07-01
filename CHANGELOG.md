@@ -97,3 +97,12 @@ Earlier development history is documented in the project's Discord update log.
 * 修正跑者報班 Interaction 回應超時問題
 * 修正推車報班 Interaction 回應超時問題
 * 修正報班流程中 `defer` 時機過晚導致 Discord 顯示應用程式沒有回應的問題
+
+## [v1.5.16] - 2026-07-01
+
+### Fixed
+
+* 修正 S6 時數統計未計入問題
+* 修正 S6 活動期數型別不一致造成查詢失敗
+* 統一 S6 period 儲存格式為 int
+* 提升 S6 時數統計相容性

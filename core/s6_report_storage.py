@@ -44,6 +44,8 @@ def add_s6_report(
     if period is None:
         period = get_current_period()
 
+    period = int(period)
+
     reports = load_s6_reports()
 
     report = {
@@ -74,7 +76,7 @@ def get_s6_reports(
 
     for report in reports:
         if period is not None:
-            if report.get("period") != period:
+            if int(report.get("period")) != int(period):
                 continue
 
         if user_id is not None:
